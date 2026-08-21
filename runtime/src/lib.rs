@@ -31,8 +31,16 @@ pub enum RuntimeError {
     InvalidAction(String),
     #[error("invalid confidence: {0}")]
     InvalidConfidence(f32),
+    #[error("invalid skill id")]
+    InvalidSkillId,
+    #[error("skill must declare at least one action: {0}")]
+    EmptySkillActions(String),
+    #[error("invalid skill action: {0}")]
+    InvalidSkillAction(String),
     #[error("duplicate skill: {0}")]
     DuplicateSkill(String),
+    #[error("duplicate action claim: {0}")]
+    DuplicateActionClaim(String),
     #[error("skill not found for action: {0}")]
     SkillNotFound(String),
     #[error("skill execution failed: {0}")]
@@ -58,6 +66,8 @@ impl SkillRegistry {
 
     pub fn register(&mut self, skill: Box<dyn Skill>) -> Result<(), RuntimeError> {
         let metadata = skill.metadata();
+        validate_skill_metadata(&metadata)?;
+
         if self
             .skills
             .iter()
@@ -65,6 +75,17 @@ impl SkillRegistry {
         {
             return Err(RuntimeError::DuplicateSkill(metadata.id));
         }
+
+        for action in &metadata.actions {
+            if self
+                .skills
+                .iter()
+                .any(|existing| existing.metadata().actions.iter().any(|item| item == action))
+            {
+                return Err(RuntimeError::DuplicateActionClaim(action.clone()));
+            }
+        }
+
         self.skills.push(skill);
         Ok(())
     }
@@ -85,6 +106,21 @@ impl SkillRegistry {
     pub fn list(&self) -> Vec<SkillMetadata> {
         self.skills.iter().map(|skill| skill.metadata()).collect()
     }
+}
+
+pub fn validate_skill_metadata(metadata: &SkillMetadata) -> Result<(), RuntimeError> {
+    if metadata.id.trim().is_empty() {
+        return Err(RuntimeError::InvalidSkillId);
+    }
+    if metadata.actions.is_empty() {
+        return Err(RuntimeError::EmptySkillActions(metadata.id.clone()));
+    }
+    for action in &metadata.actions {
+        if action.trim().is_empty() || !action.contains('.') {
+            return Err(RuntimeError::InvalidSkillAction(action.clone()));
+        }
+    }
+    Ok(())
 }
 
 pub fn validate_intent(intent: &Intent) -> Result<(), RuntimeError> {
@@ -205,6 +241,46 @@ mod tests {
 
         intent.confidence = 0.60;
         assert_eq!(execution_decision(&intent), ExecutionDecision::Clarify);
+    }
+
+    #[test]
+    fn rejects_invalid_skill_metadata() {
+        assert_eq!(
+            validate_skill_metadata(&SkillMetadata {
+                id: "".into(),
+                version: "0.1.0".into(),
+                actions: vec!["test.run".into()],
+                permissions: vec![],
+            }),
+            Err(RuntimeError::InvalidSkillId)
+        );
+    }
+
+    #[test]
+    fn rejects_action_collision() {
+        let mut registry = SkillRegistry::new();
+        registry.register(Box::new(TestSkill)).unwrap();
+
+        struct OtherSkill;
+        impl Skill for OtherSkill {
+            fn metadata(&self) -> SkillMetadata {
+                SkillMetadata {
+                    id: "other".into(),
+                    version: "0.1.0".into(),
+                    actions: vec!["test.run".into()],
+                    permissions: vec![],
+                }
+            }
+
+            fn execute(&self, _intent: &Intent) -> Result<SkillResult, RuntimeError> {
+                unreachable!()
+            }
+        }
+
+        assert_eq!(
+            registry.register(Box::new(OtherSkill)),
+            Err(RuntimeError::DuplicateActionClaim("test.run".into()))
+        );
     }
 
     #[test]
