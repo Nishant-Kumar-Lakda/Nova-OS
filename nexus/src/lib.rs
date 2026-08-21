@@ -30,37 +30,48 @@ pub fn parse(input: &str) -> Result<Intent, IntentError> {
         return Err(IntentError::EmptyInput);
     }
 
-    let (action, confidence, parameters) = if matches!(
-        text.as_str(),
-        "turn on flashlight" | "turn on the flashlight" | "flashlight on"
-    ) {
-        ("flashlight.on", 0.99, serde_json::json!({}))
-    } else if matches!(
-        text.as_str(),
-        "turn off flashlight" | "turn off the flashlight" | "flashlight off"
-    ) {
-        ("flashlight.off", 0.99, serde_json::json!({}))
-    } else if matches!(
-        text.as_str(),
-        "turn on wifi" | "turn on wi-fi" | "enable wifi" | "enable wi-fi"
-    ) {
-        ("wifi.enable", 0.99, serde_json::json!({}))
-    } else if matches!(
-        text.as_str(),
-        "turn off wifi" | "turn off wi-fi" | "disable wifi" | "disable wi-fi"
-    ) {
-        ("wifi.disable", 0.99, serde_json::json!({}))
-    } else if matches!(text.as_str(), "turn on bluetooth" | "enable bluetooth") {
-        ("bluetooth.enable", 0.99, serde_json::json!({}))
-    } else if matches!(text.as_str(), "turn off bluetooth" | "disable bluetooth") {
-        ("bluetooth.disable", 0.99, serde_json::json!({}))
-    } else if matches!(
-        text.as_str(),
-        "battery status" | "show battery" | "check battery"
-    ) {
-        ("battery.status", 0.99, serde_json::json!({}))
-    } else {
-        return Err(IntentError::UnsupportedCommand);
+    let (action, confidence, parameters) = match text.as_str() {
+        "turn on flashlight" | "turn on the flashlight" | "flashlight on" => {
+            ("flashlight.on", 0.99, serde_json::json!({}))
+        }
+        "turn off flashlight" | "turn off the flashlight" | "flashlight off" => {
+            ("flashlight.off", 0.99, serde_json::json!({}))
+        }
+        "turn on wifi" | "turn on wi-fi" | "enable wifi" | "enable wi-fi" => {
+            ("wifi.enable", 0.99, serde_json::json!({}))
+        }
+        "turn off wifi" | "turn off wi-fi" | "disable wifi" | "disable wi-fi" => {
+            ("wifi.disable", 0.99, serde_json::json!({}))
+        }
+        "turn on bluetooth" | "enable bluetooth" => {
+            ("bluetooth.enable", 0.99, serde_json::json!({}))
+        }
+        "turn off bluetooth" | "disable bluetooth" => {
+            ("bluetooth.disable", 0.99, serde_json::json!({}))
+        }
+        "battery status" | "show battery" | "check battery" => {
+            ("battery.status", 0.99, serde_json::json!({}))
+        }
+        "open camera" | "launch camera" | "start camera" => {
+            ("camera.open", 0.99, serde_json::json!({}))
+        }
+        "open settings" | "open system settings" | "show settings" => {
+            ("settings.open", 0.99, serde_json::json!({}))
+        }
+        "open calculator" | "launch calculator" => {
+            ("app.open", 0.99, serde_json::json!({"app": "calculator"}))
+        }
+        "open browser" | "launch browser" | "open web browser" => {
+            ("app.open", 0.99, serde_json::json!({"app": "browser"}))
+        }
+        _ if text.starts_with("open ") => {
+            let app = text.trim_start_matches("open ").trim();
+            if app.is_empty() {
+                return Err(IntentError::UnsupportedCommand);
+            }
+            ("app.open", 0.95, serde_json::json!({"app": app}))
+        }
+        _ => return Err(IntentError::UnsupportedCommand),
     };
 
     if !(0.0..=1.0).contains(&confidence) {
@@ -92,6 +103,28 @@ mod tests {
     fn parses_wifi_command() {
         let intent = parse("enable Wi-Fi").unwrap();
         assert_eq!(intent.action, "wifi.enable");
+    }
+
+    #[test]
+    fn parses_camera_command() {
+        let intent = parse("open camera").unwrap();
+        assert_eq!(intent.action, "camera.open");
+    }
+
+    #[test]
+    fn parses_generic_app_command() {
+        let intent = parse("open music").unwrap();
+        assert_eq!(intent.action, "app.open");
+        assert_eq!(intent.parameters["app"], "music");
+        assert_eq!(intent.confidence, 0.95);
+    }
+
+    #[test]
+    fn rejects_empty_generic_app() {
+        assert_eq!(
+            parse("open "),
+            Err(IntentError::UnsupportedCommand)
+        );
     }
 
     #[test]
