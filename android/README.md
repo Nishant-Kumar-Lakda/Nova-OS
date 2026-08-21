@@ -1,6 +1,6 @@
 # NOVA Android Prototype 0.2 — Android First
 
-This is the Android-first NOVA phone prototype. The Android application is a thin host around the NOVA architecture, with Rust NEXUS/AIR/Core supplied through an optional JNI library and a deterministic fallback when that library is not packaged.
+This is the Android-first NOVA phone prototype. The Android application is a thin host around the NOVA architecture, with Rust NEXUS/AIR/Core supplied through JNI plus a deterministic fallback when the native library is unavailable.
 
 ## Runtime architecture
 
@@ -11,14 +11,24 @@ NovaAndroidEngine
    ↓
 Task Session + Safety Gate
    ↓
-Rust NEXUS / NIL (JNI, preferred)
+Rust NEXUS / NIL (JNI)
    ↓
-NOVA Core / AIR diagnostics
+NOVA Core / AIR
+   ↓
+Local SmolLM2 model when needed
    ↓
 Android Platform Adapter
    ↓
 Device
 ```
+
+## Offline AI
+
+The first generative model is **SmolLM2 135M Instruct, GGUF Q2_K**. It is approximately 88 MB and is executed locally through a pinned llama.cpp build. The model is fetched during the native Android build and packaged into the APK, so the installed application does not need network access to use it.
+
+The model manifest is `models/manifests/smollm2-135m-android-q2k.json`.
+
+The model is a fallback layer: deterministic NEXUS handles known OS intents first; unsupported natural-language requests can be answered by the local model. The model is never allowed to directly execute Android APIs.
 
 ## Safety boundary
 
@@ -35,32 +45,36 @@ The prototype:
 - Only allowlisted app aliases can be launched (`settings`, `camera`, `calculator`).
 - Unknown or non-allowlisted app requests are rejected.
 
-Wi-Fi, Bluetooth, and flashlight commands are simulation-only so they cannot accidentally alter device state.
+Wi-Fi, Bluetooth, and flashlight commands are simulation-only.
 
 ## Run locally
 
-Open the `android/` directory in Android Studio, allow Gradle to sync, enable USB debugging on a spare/test Android phone, select the phone, and run the `app` debug configuration.
+Install Android Studio, Android SDK/NDK, Rust, Git, and CMake. From the repository root run:
 
-Without native libraries, the app runs using the safe deterministic Android fallback router.
+```text
+scripts/prepare_android_model.sh
+```
 
-## Run the native Rust build
+That script pins llama.cpp to the exact commit recorded in the model manifest and fetches the GGUF model into the generated Android assets directory. Then open `android/` in Android Studio, allow Gradle to sync, enable USB debugging on a spare/test Android phone, select the phone, and run the `app` debug configuration.
 
-The repository includes `.github/workflows/android-native.yml`. Run the **NOVA Android Native** workflow from GitHub Actions. It builds the Rust JNI bridge for:
+The repository deliberately does not commit the GGUF binary or llama.cpp source tree.
+
+## Run the native CI build
+
+The `NOVA Android Native` GitHub Actions workflow builds the Rust JNI bridge and the llama.cpp native layer for:
 
 - `arm64-v8a`
 - `armeabi-v7a`
 - `x86_64`
 - `x86`
 
-It packages those libraries into the debug APK and uploads the APK as the `nova-android-native-debug` artifact.
+It fetches the model, packages the native libraries and model into the debug APK, verifies that cloud/privileged permissions are absent from the APK manifest, and uploads the installable APK artifact.
 
-Install the resulting APK with Android Studio or:
+Install the resulting APK with:
 
 ```text
 adb install -r app-debug.apk
 ```
-
-The app status line should then report `NEXUS: Rust/JNI` and `Core: READY`.
 
 ## First commands
 
@@ -69,19 +83,15 @@ battery status
 open settings
 open camera
 open calculator
-open browser        # rejected in the offline prototype
-turn on flashlight  # simulation only
-turn on Wi-Fi       # simulation only
-turn on Bluetooth   # simulation only
+ask NOVA something it does not understand
+turn on flashlight       # simulation only
+turn on Wi-Fi            # simulation only
+turn on Bluetooth        # simulation only
 ```
 
 ## Core diagnostics
 
-The **Run Core Diagnostics** button verifies that the packaged native library can initialize the Rust NOVA Core and built-in skills without contacting a network.
-
-## Offline AI status
-
-The architecture already includes AIR model residency, resource-aware budgeting, and a pluggable local inference backend. The current phone build intentionally uses the deterministic NEXUS bootstrap path until a measured tiny offline model is selected and packaged for the target phone class.
+The **Run Core Diagnostics** button reports Rust NEXUS, NOVA Core, AIR, built-in skills, local model bridge, RAM, battery, and model-store state.
 
 ## Security release gate
 
