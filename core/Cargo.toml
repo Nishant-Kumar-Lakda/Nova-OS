@@ -12,6 +12,7 @@ nova-core-skills = { path = "../skills/core" }
 nova-memory = { path = "../memory" }
 nova-nexus = { path = "../nexus" }
 nova-planner = { path = "../planner" }
+nova-platform = { path = "../platform" }
 nova-runtime = { path = "../runtime" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
