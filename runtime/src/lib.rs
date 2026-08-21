@@ -201,16 +201,10 @@ mod tests {
 
         let mut intent = test_intent();
         intent.confidence = 0.80;
-        assert_eq!(
-            execution_decision(&intent),
-            ExecutionDecision::Confirm
-        );
+        assert_eq!(execution_decision(&intent), ExecutionDecision::Confirm);
 
         intent.confidence = 0.60;
-        assert_eq!(
-            execution_decision(&intent),
-            ExecutionDecision::Clarify
-        );
+        assert_eq!(execution_decision(&intent), ExecutionDecision::Clarify);
     }
 
     #[test]
