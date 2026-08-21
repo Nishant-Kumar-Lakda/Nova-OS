@@ -13,12 +13,16 @@ use nova_runtime::{
 };
 use thiserror::Error;
 
+pub mod input;
 pub mod task;
 
+pub use input::{InputError, InputSource, UserInput};
 pub use task::{TaskError, TaskManager, TaskSession, TaskState};
 
 #[derive(Debug, Error)]
 pub enum NovaError {
+    #[error(transparent)]
+    Input(#[from] InputError),
     #[error(transparent)]
     Intent(#[from] IntentError),
     #[error(transparent)]
@@ -73,6 +77,11 @@ where
             self.register_skill(skill)?;
         }
         Ok(())
+    }
+
+    pub fn submit_input(&mut self, input: UserInput) -> Result<String, NovaError> {
+        self.context.set_user_input(&input.text);
+        Ok(self.tasks.create(input.text)?)
     }
 
     pub fn understand(&mut self, input: &str) -> Result<Intent, NovaError> {
@@ -229,6 +238,15 @@ mod tests {
 
         assert_eq!(intent.action, "battery.status");
         assert_eq!(nova.task(&task_id).unwrap().state, TaskState::Planning);
+    }
+
+    #[test]
+    fn submit_input_creates_task_from_any_source() {
+        let mut nova = NovaEngine::new(1024, EchoBackend, 8).unwrap();
+        let input = UserInput::new(InputSource::Voice, "check battery", 100).unwrap();
+        let task_id = nova.submit_input(input).unwrap();
+
+        assert_eq!(nova.task(&task_id).unwrap().input, "check battery");
     }
 
     #[test]
