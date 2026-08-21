@@ -35,7 +35,15 @@ Actions use lowercase dotted namespaces:
 - `bluetooth.enable`
 - `bluetooth.disable`
 - `battery.status`
+- `camera.open`
+- `settings.open`
 - `app.open`
+- `files.find`
+- `files.read`
+- `text.summarize`
+- `notes.create`
+- `phone.call`
+- `message.send`
 
 ## Safety
 
