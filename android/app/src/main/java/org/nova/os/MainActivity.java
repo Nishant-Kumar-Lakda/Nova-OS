@@ -62,6 +62,10 @@ public class MainActivity extends Activity {
             output.setText("Latest NOVA task cancelled.");
         });
 
+        Button diagnostics = new Button(this);
+        diagnostics.setText("Run Core Diagnostics");
+        diagnostics.setOnClickListener(v -> output.setText(coreDiagnostics()));
+
         output = new TextView(this);
         output.setTextSize(16);
         output.setPadding(0, 28, 0, 28);
@@ -72,9 +76,11 @@ public class MainActivity extends Activity {
                 + "• battery status\n"
                 + "• open settings\n"
                 + "• open camera\n"
+                + "• open calculator\n"
+                + "• open browser\n"
                 + "• turn on flashlight (simulation)\n"
                 + "• turn on Wi-Fi (simulation)\n\n"
-                + "This prototype requests no Internet, accessibility, device-admin, SMS, contacts, microphone, Wi-Fi control, Bluetooth control, or flashlight-control permissions.");
+                + "No Internet, accessibility, device-admin, SMS, contacts, microphone, Wi-Fi control, Bluetooth control, or flashlight-control permissions are requested.");
         examples.setTextSize(14);
 
         root.addView(title, matchWrap());
@@ -83,6 +89,7 @@ public class MainActivity extends Activity {
         root.addView(command, matchWrap());
         root.addView(execute, matchWrap());
         root.addView(cancel, matchWrap());
+        root.addView(diagnostics, matchWrap());
         root.addView(output, matchWrap());
         root.addView(examples, matchWrap());
 
@@ -93,19 +100,39 @@ public class MainActivity extends Activity {
 
     private void refreshStatus() {
         AndroidResourceSnapshot resources = AndroidResourceSnapshot.read(this);
-        long aiBudget = NativeNovaBridge.recommendModelBudget(resources);
-        String budgetText = aiBudget > 0
-                ? String.format(Locale.ROOT, " • AIR budget: %d MB", aiBudget / (1024 * 1024))
-                : " • AIR budget: pending native bridge";
+        long budget = NativeNovaBridge.recommendModelBudget(resources);
+        NativeNovaBridge.CoreStatus core = NativeNovaBridge.bootDiagnostics();
+        String source = NativeNovaBridge.isAvailable() ? "Rust/JNI" : "Java fallback";
+        String coreStatus = core.ready ? "READY" : (core.available ? "ERROR" : "FALLBACK");
+        String budgetText = budget > 0
+                ? String.format(Locale.ROOT, "%d MB", budget / (1024 * 1024))
+                : "pending";
 
         status.setText(String.format(
                 Locale.ROOT,
-                "Rust NEXUS: %s • RAM available: %d MB • Battery: %d%%%s",
-                NativeNovaBridge.isAvailable() ? "AVAILABLE" : "FALLBACK",
+                "NEXUS: %s • Core: %s • RAM: %d MB • Battery: %d%% • AIR budget: %s",
+                source,
+                coreStatus,
                 resources.availableMemoryBytes / (1024 * 1024),
                 resources.batteryPercent,
                 budgetText
         ));
+    }
+
+    private String coreDiagnostics() {
+        refreshStatus();
+        NativeNovaBridge.CoreStatus core = NativeNovaBridge.bootDiagnostics();
+        if (core.ready) {
+            return "NOVA Rust Core booted successfully.\n\n"
+                    + "Core: READY\n"
+                    + "AIR: READY\n"
+                    + "Planner: READY\n"
+                    + "Memory: READY\n"
+                    + "Context: READY\n"
+                    + "Runtime: READY\n"
+                    + "Built-in Skills: READY";
+        }
+        return "Native NOVA Core is not ready.\n\nReason: " + core.error;
     }
 
     private void handle(String input) {
@@ -127,6 +154,9 @@ public class MainActivity extends Activity {
                     .append(command.action.name().toLowerCase(Locale.ROOT))
                     .append("\n");
             text.append(String.format(Locale.ROOT, "Confidence: %.2f\n", command.confidence));
+            if (!command.parameter.isEmpty()) {
+                text.append("Parameter: ").append(command.parameter).append("\n");
+            }
         }
         text.append("NEXUS source: ")
                 .append(result.nativeNexusUsed ? "Rust/JNI" : "Android fallback")
