@@ -9,9 +9,7 @@ on:
       - "nexus/**"
       - "air/**"
       - "core/**"
-      - "runtime/**"
-      - "platform/**"
-      - "skills/core/**"
+      - "models/**"
       - "Cargo.toml"
       - "Cargo.lock"
 
@@ -44,11 +42,26 @@ jobs:
       - name: Install cargo-ndk
         run: cargo install cargo-ndk --locked
 
-      - name: Build native NOVA bridge
+      - name: Fetch pinned llama.cpp
+        run: |
+          git clone https://github.com/ggml-org/llama.cpp.git android/app/src/main/cpp/llama.cpp
+          cd android/app/src/main/cpp/llama.cpp
+          git checkout 9a286ac98d2cab74231bd3f1fc3f2b8bdf05422e
+
+      - name: Fetch SmolLM2 135M Q2_K model
+        run: |
+          mkdir -p android/app/src/main/assets/models
+          curl -L --fail --retry 3 \
+            "https://huggingface.co/tensorblock/SmolLM2-135M-Instruct-GGUF/resolve/main/SmolLM2-135M-Instruct-Q2_K.gguf?download=true" \
+            -o android/app/src/main/assets/models/SmolLM2-135M-Instruct-Q2_K.gguf
+          test -s android/app/src/main/assets/models/SmolLM2-135M-Instruct-Q2_K.gguf
+          sha256sum android/app/src/main/assets/models/SmolLM2-135M-Instruct-Q2_K.gguf | tee android/app/src/main/assets/models/SmolLM2-135M-Instruct-Q2_K.gguf.sha256
+
+      - name: Build Rust Android bridge
         run: |
           cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -t x86 build --release -p nova-android-bridge
 
-      - name: Package native libraries into Android APK
+      - name: Package Rust bridge libraries
         shell: bash
         run: |
           set -euo pipefail
@@ -58,7 +71,7 @@ jobs:
           cp target/x86_64-linux-android/release/libnova_android_bridge.so android/app/src/main/jniLibs/x86_64/
           cp target/i686-linux-android/release/libnova_android_bridge.so android/app/src/main/jniLibs/x86/
 
-      - name: Verify native library presence
+      - name: Verify native bridge presence
         run: |
           test -f android/app/src/main/jniLibs/arm64-v8a/libnova_android_bridge.so
           test -f android/app/src/main/jniLibs/armeabi-v7a/libnova_android_bridge.so
@@ -70,31 +83,31 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build Android APK with Rust NOVA bridge
+      - name: Build Android APK with local AI model
         working-directory: android
         run: gradle --no-daemon testDebugUnitTest assembleDebug
 
-      - name: Verify built APK permissions
-        shell: bash
+      - name: Verify APK has model asset
         run: |
-          set -euo pipefail
-          aapt dump permissions android/app/build/outputs/apk/debug/app-debug.apk > /tmp/nova-permissions.txt
-          ! grep -E 'android.permission\.(INTERNET|ACCESSIBILITY_SERVICE|BIND_ACCESSIBILITY_SERVICE|WRITE_SETTINGS|BLUETOOTH_CONNECT|BLUETOOTH_SCAN|BLUETOOTH_ADMIN|CHANGE_WIFI_STATE|READ_CONTACTS|READ_SMS|RECEIVE_SMS|RECORD_AUDIO|POST_NOTIFICATIONS)' /tmp/nova-permissions.txt
+          unzip -l android/app/build/outputs/apk/debug/app-debug.apk | grep 'SmolLM2-135M-Instruct-Q2_K.gguf'
+
+      - name: Verify APK does not request cloud or privileged permissions
+        run: |
+          ! unzip -p android/app/build/outputs/apk/debug/app-debug.apk AndroidManifest.xml | grep -a -E 'INTERNET|BIND_ACCESSIBILITY_SERVICE|DEVICE_ADMIN|READ_CONTACTS|READ_SMS|RECORD_AUDIO|BLUETOOTH_CONNECT|CHANGE_WIFI_STATE'
 
       - name: Generate APK checksum
-        working-directory: android/app/build/outputs/apk/debug
-        run: sha256sum app-debug.apk > app-debug.apk.sha256
+        run: sha256sum android/app/build/outputs/apk/debug/app-debug.apk | tee nova-android-debug.apk.sha256
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: nova-android-native-debug
+          name: nova-android-native-ai-debug
           path: |
             android/app/build/outputs/apk/debug/app-debug.apk
-            android/app/build/outputs/apk/debug/app-debug.apk.sha256
+            nova-android-debug.apk.sha256
 
-      - name: Upload native libraries
+      - name: Upload model checksum
         uses: actions/upload-artifact@v4
         with:
-          name: nova-android-native-libraries
-          path: android/app/src/main/jniLibs/**/libnova_android_bridge.so
+          name: nova-smollm2-model-checksum
+          path: android/app/src/main/assets/models/SmolLM2-135M-Instruct-Q2_K.gguf.sha256
