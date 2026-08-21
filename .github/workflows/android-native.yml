@@ -1,0 +1,82 @@
+name: NOVA Android Native
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "android-bridge/**"
+      - "android/**"
+      - "nexus/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+
+jobs:
+  native-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK and NDK
+        run: |
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;27.0.12077973"
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.0.12077973" >> "$GITHUB_ENV"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+
+      - name: Build native NOVA bridge
+        run: |
+          cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -t x86 build --release -p nova-android-bridge
+
+      - name: Package native libraries into Android APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p android/app/src/main/jniLibs/{arm64-v8a,armeabi-v7a,x86_64,x86}
+          cp target/aarch64-linux-android/release/libnova_android_bridge.so android/app/src/main/jniLibs/arm64-v8a/
+          cp target/armv7-linux-androideabi/release/libnova_android_bridge.so android/app/src/main/jniLibs/armeabi-v7a/
+          cp target/x86_64-linux-android/release/libnova_android_bridge.so android/app/src/main/jniLibs/x86_64/
+          cp target/i686-linux-android/release/libnova_android_bridge.so android/app/src/main/jniLibs/x86/
+
+      - name: Verify native library presence
+        run: |
+          test -f android/app/src/main/jniLibs/arm64-v8a/libnova_android_bridge.so
+          test -f android/app/src/main/jniLibs/armeabi-v7a/libnova_android_bridge.so
+          test -f android/app/src/main/jniLibs/x86_64/libnova_android_bridge.so
+          test -f android/app/src/main/jniLibs/x86/libnova_android_bridge.so
+
+      - name: Install Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build Android APK with Rust NEXUS bridge
+        working-directory: android
+        run: gradle --no-daemon testDebugUnitTest assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: nova-android-native-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload native libraries
+        uses: actions/upload-artifact@v4
+        with:
+          name: nova-android-native-libraries
+          path: android/app/src/main/jniLibs/**/libnova_android_bridge.so
