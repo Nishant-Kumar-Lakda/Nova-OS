@@ -3,7 +3,7 @@ package org.nova.os;
 import org.json.JSONObject;
 
 /**
- * Optional JNI bridge to the Rust NEXUS and AIR implementations.
+ * Optional JNI bridge to the Rust NEXUS, AIR, and NOVA Core implementations.
  *
  * Safe fallback: when the native library is not packaged yet, callers can
  * continue using the Android prototype router. The bridge itself never
@@ -81,6 +81,25 @@ public final class NativeNovaBridge {
         }
     }
 
+    public static CoreStatus bootDiagnostics() {
+        if (!AVAILABLE) {
+            return CoreStatus.unavailable();
+        }
+        try {
+            String json = nativeBootDiagnostics();
+            if (json == null) {
+                return CoreStatus.error("native boot diagnostics returned no result");
+            }
+            JSONObject object = new JSONObject(json);
+            if (!object.optBoolean("ok", false)) {
+                return CoreStatus.error(object.optString("error", "core boot failed"));
+            }
+            return CoreStatus.ready();
+        } catch (Exception error) {
+            return CoreStatus.error(error.getClass().getSimpleName() + ": " + error.getMessage());
+        }
+    }
+
     private static native String nativeUnderstand(String input);
 
     private static native long nativeRecommendModelBudget(
@@ -89,6 +108,8 @@ public final class NativeNovaBridge {
             boolean lowMemory,
             boolean lowPower
     );
+
+    private static native String nativeBootDiagnostics();
 
     public static final class Result {
         public final boolean available;
@@ -127,6 +148,30 @@ public final class NativeNovaBridge {
 
         static Result error(String error) {
             return new Result(true, false, "", 0.0f, "", "", error);
+        }
+    }
+
+    public static final class CoreStatus {
+        public final boolean available;
+        public final boolean ready;
+        public final String error;
+
+        private CoreStatus(boolean available, boolean ready, String error) {
+            this.available = available;
+            this.ready = ready;
+            this.error = error;
+        }
+
+        static CoreStatus unavailable() {
+            return new CoreStatus(false, false, "native library unavailable");
+        }
+
+        static CoreStatus ready() {
+            return new CoreStatus(true, true, "");
+        }
+
+        static CoreStatus error(String error) {
+            return new CoreStatus(true, false, error);
         }
     }
 }
