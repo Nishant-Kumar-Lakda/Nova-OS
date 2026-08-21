@@ -1,4 +1,5 @@
 use nova_nexus::{parse, Intent};
+use nova_platform::Platform;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -14,6 +15,10 @@ pub struct SkillMetadata {
 pub struct SkillResult {
     pub success: bool,
     pub data: serde_json::Value,
+}
+
+pub struct SkillContext<'a> {
+    pub platform: &'a dyn Platform,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -52,6 +57,16 @@ pub enum RuntimeError {
 pub trait Skill: Send + Sync {
     fn metadata(&self) -> SkillMetadata;
     fn execute(&self, intent: &Intent) -> Result<SkillResult, RuntimeError>;
+
+    /// Optional platform-aware execution hook. Existing skills remain
+    /// compatible; platform-enabled skills can override this method.
+    fn execute_with_context(
+        &self,
+        intent: &Intent,
+        _context: &SkillContext<'_>,
+    ) -> Result<SkillResult, RuntimeError> {
+        self.execute(intent)
+    }
 }
 
 #[derive(Default)]
@@ -161,6 +176,21 @@ pub fn execute(registry: &SkillRegistry, intent: &Intent) -> Result<SkillResult,
     skill.execute(intent)
 }
 
+pub fn execute_with_platform(
+    registry: &SkillRegistry,
+    intent: &Intent,
+    platform: &dyn Platform,
+) -> Result<SkillResult, RuntimeError> {
+    validate_intent(intent)?;
+
+    let skill = registry
+        .find_for_action(&intent.action)
+        .ok_or_else(|| RuntimeError::SkillNotFound(intent.action.clone()))?;
+
+    let context = SkillContext { platform };
+    skill.execute_with_context(intent, &context)
+}
+
 /// End-to-end local pipeline: text -> NEXUS -> NIL validation -> skill dispatch.
 /// No network or cloud service is involved.
 pub fn execute_text(registry: &SkillRegistry, input: &str) -> Result<SkillResult, RuntimeError> {
@@ -181,6 +211,7 @@ pub fn execute_text(registry: &SkillRegistry, input: &str) -> Result<SkillResult
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nova_platform::MockPlatform;
 
     struct TestSkill;
 
@@ -198,6 +229,38 @@ mod tests {
             Ok(SkillResult {
                 success: true,
                 data: serde_json::json!({"message": "skill executed"}),
+            })
+        }
+    }
+
+    struct BatterySkill;
+
+    impl Skill for BatterySkill {
+        fn metadata(&self) -> SkillMetadata {
+            SkillMetadata {
+                id: "battery".into(),
+                version: "0.1.0".into(),
+                actions: vec!["battery.read".into()],
+                permissions: vec!["device.battery".into()],
+            }
+        }
+
+        fn execute(&self, _intent: &Intent) -> Result<SkillResult, RuntimeError> {
+            unreachable!()
+        }
+
+        fn execute_with_context(
+            &self,
+            _intent: &Intent,
+            context: &SkillContext<'_>,
+        ) -> Result<SkillResult, RuntimeError> {
+            let value = context
+                .platform
+                .battery_percent()
+                .map_err(|error| RuntimeError::SkillExecutionFailed(error.to_string()))?;
+            Ok(SkillResult {
+                success: true,
+                data: serde_json::json!({"battery_percent": value}),
             })
         }
     }
@@ -281,6 +344,24 @@ mod tests {
             registry.register(Box::new(OtherSkill)),
             Err(RuntimeError::DuplicateActionClaim("test.run".into()))
         );
+    }
+
+    #[test]
+    fn executes_platform_aware_skill_without_cloud_access() {
+        let mut registry = SkillRegistry::new();
+        registry.register(Box::new(BatterySkill)).unwrap();
+        let platform = MockPlatform::new(73).unwrap();
+        let intent = Intent {
+            version: "0.1".into(),
+            action: "battery.read".into(),
+            parameters: serde_json::json!({}),
+            context: serde_json::json!({}),
+            confidence: 0.99,
+            constraints: serde_json::json!({}),
+        };
+
+        let result = execute_with_platform(&registry, &intent, &platform).unwrap();
+        assert_eq!(result.data["battery_percent"], 73);
     }
 
     #[test]
