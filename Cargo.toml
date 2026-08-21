@@ -1,5 +1,5 @@
 [workspace]
-members = ["nexus", "runtime", "air", "planner", "memory", "context", "core"]
+members = ["nexus", "runtime", "air", "planner", "memory", "context", "core", "platform"]
 resolver = "2"
 
 [workspace.package]
