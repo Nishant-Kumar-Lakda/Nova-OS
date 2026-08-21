@@ -1,4 +1,4 @@
-use nova_nexus::Intent;
+use nova_nexus::{parse, Intent};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -16,6 +16,13 @@ pub struct SkillResult {
     pub data: serde_json::Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExecutionDecision {
+    Execute,
+    Confirm,
+    Clarify,
+}
+
 #[derive(Debug, Error, PartialEq)]
 pub enum RuntimeError {
     #[error("invalid intent version: {0}")]
@@ -24,12 +31,14 @@ pub enum RuntimeError {
     InvalidAction(String),
     #[error("invalid confidence: {0}")]
     InvalidConfidence(f32),
-    #[error("skill already registered: {0}")]
+    #[error("duplicate skill: {0}")]
     DuplicateSkill(String),
     #[error("skill not found for action: {0}")]
     SkillNotFound(String),
     #[error("skill execution failed: {0}")]
     SkillExecutionFailed(String),
+    #[error("intent parsing failed: {0}")]
+    IntentParsingFailed(String),
 }
 
 pub trait Skill: Send + Sync {
@@ -84,6 +93,18 @@ pub fn validate_intent(intent: &Intent) -> Result<(), RuntimeError> {
     Ok(())
 }
 
+/// Maps NIL confidence to an execution policy. High-risk actions must later
+/// override this with explicit confirmation requirements from the skill.
+pub fn execution_decision(intent: &Intent) -> ExecutionDecision {
+    if intent.confidence >= 0.95 {
+        ExecutionDecision::Execute
+    } else if intent.confidence >= 0.75 {
+        ExecutionDecision::Confirm
+    } else {
+        ExecutionDecision::Clarify
+    }
+}
+
 pub fn execute(registry: &SkillRegistry, intent: &Intent) -> Result<SkillResult, RuntimeError> {
     validate_intent(intent)?;
 
@@ -92,6 +113,23 @@ pub fn execute(registry: &SkillRegistry, intent: &Intent) -> Result<SkillResult,
         .ok_or_else(|| RuntimeError::SkillNotFound(intent.action.clone()))?;
 
     skill.execute(intent)
+}
+
+/// End-to-end local pipeline: text -> NEXUS -> NIL validation -> skill dispatch.
+/// No network or cloud service is involved.
+pub fn execute_text(registry: &SkillRegistry, input: &str) -> Result<SkillResult, RuntimeError> {
+    let intent = parse(input)
+        .map_err(|error| RuntimeError::IntentParsingFailed(error.to_string()))?;
+
+    match execution_decision(&intent) {
+        ExecutionDecision::Execute => execute(registry, &intent),
+        ExecutionDecision::Confirm => Err(RuntimeError::SkillExecutionFailed(
+            "confirmation required".into(),
+        )),
+        ExecutionDecision::Clarify => Err(RuntimeError::SkillExecutionFailed(
+            "clarification required".into(),
+        )),
+    }
 }
 
 #[cfg(test)]
@@ -142,6 +180,18 @@ mod tests {
             validate_intent(&intent),
             Err(RuntimeError::InvalidIntentVersion("9.0".into()))
         );
+    }
+
+    #[test]
+    fn applies_confidence_policy() {
+        assert_eq!(execution_decision(&test_intent()), ExecutionDecision::Execute);
+
+        let mut intent = test_intent();
+        intent.confidence = 0.80;
+        assert_eq!(execution_decision(&intent), ExecutionDecision::Confirm);
+
+        intent.confidence = 0.60;
+        assert_eq!(execution_decision(&intent), ExecutionDecision::Clarify);
     }
 
     #[test]
