@@ -42,22 +42,31 @@ public final class NativeNovaBridge {
             }
 
             JSONObject object = new JSONObject(json);
-            if (!object.optBoolean("ok", true)) {
+            if (!object.optBoolean("ok", false)) {
                 return Result.error(object.optString("error", "native understanding failed"));
             }
 
-            return Result.success(
-                    object.optString("action", ""),
-                    (float) object.optDouble("confidence", 0.0),
-                    json
-            );
+            JSONObject intent = object.optJSONObject("intent");
+            if (intent == null) {
+                return Result.error("native bridge returned no intent");
+            }
+
+            String action = intent.optString("action", "");
+            float confidence = (float) intent.optDouble("confidence", 0.0);
+            String parameter = "";
+            JSONObject parameters = intent.optJSONObject("parameters");
+            if (parameters != null) {
+                parameter = parameters.optString("app", "");
+            }
+
+            return Result.success(action, confidence, parameter, json);
         } catch (Exception error) {
             return Result.error(error.getClass().getSimpleName() + ": " + error.getMessage());
         }
     }
 
     public static long recommendModelBudget(AndroidResourceSnapshot resources) {
-        if (!AVAILABLE || resources == null) {
+        if (!AVAILABLE || resources == null || resources.batteryPercent < 0) {
             return 0L;
         }
         try {
@@ -86,6 +95,7 @@ public final class NativeNovaBridge {
         public final boolean success;
         public final String action;
         public final float confidence;
+        public final String parameter;
         public final String rawJson;
         public final String error;
 
@@ -94,6 +104,7 @@ public final class NativeNovaBridge {
                 boolean success,
                 String action,
                 float confidence,
+                String parameter,
                 String rawJson,
                 String error
         ) {
@@ -101,20 +112,21 @@ public final class NativeNovaBridge {
             this.success = success;
             this.action = action;
             this.confidence = confidence;
+            this.parameter = parameter;
             this.rawJson = rawJson;
             this.error = error;
         }
 
         static Result unavailable() {
-            return new Result(false, false, "", 0.0f, "", "native library unavailable");
+            return new Result(false, false, "", 0.0f, "", "", "native library unavailable");
         }
 
-        static Result success(String action, float confidence, String rawJson) {
-            return new Result(true, true, action, confidence, rawJson, "");
+        static Result success(String action, float confidence, String parameter, String rawJson) {
+            return new Result(true, true, action, confidence, parameter, rawJson, "");
         }
 
         static Result error(String error) {
-            return new Result(true, false, "", 0.0f, "", error);
+            return new Result(true, false, "", 0.0f, "", "", error);
         }
     }
 }
