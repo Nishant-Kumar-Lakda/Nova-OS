@@ -110,12 +110,8 @@ impl Scheduler {
             .tasks
             .get_mut(task_id)
             .ok_or_else(|| SchedulerError::TaskNotFound(task_id.to_string()))?;
-
         let current = task.state;
-        if current == TaskState::Paused
-            && next_state == TaskState::Running
-            && !task.resumable
-        {
+        if current == TaskState::Paused && next_state == TaskState::Running && !task.resumable {
             return Err(SchedulerError::NotResumable);
         }
 
@@ -144,7 +140,10 @@ impl Scheduler {
 fn valid_transition(from: TaskState, to: TaskState) -> bool {
     match from {
         TaskState::Queued => matches!(to, TaskState::Running | TaskState::Cancelled),
-        TaskState::Running => matches!(to, TaskState::Paused | TaskState::Completed | TaskState::Cancelled),
+        TaskState::Running => matches!(
+            to,
+            TaskState::Paused | TaskState::Completed | TaskState::Cancelled
+        ),
         TaskState::Paused => matches!(to, TaskState::Running | TaskState::Cancelled),
         TaskState::Completed | TaskState::Cancelled => false,
     }
@@ -175,9 +174,7 @@ mod tests {
     #[test]
     fn rejects_duplicate_task() {
         let mut scheduler = Scheduler::new();
-        scheduler
-            .submit(task("a", Priority::Normal, true))
-            .unwrap();
+        scheduler.submit(task("a", Priority::Normal, true)).unwrap();
         assert_eq!(
             scheduler.submit(task("a", Priority::High, true)),
             Err(SchedulerError::DuplicateTask("a".into()))
@@ -187,9 +184,7 @@ mod tests {
     #[test]
     fn selects_highest_priority() {
         let mut scheduler = Scheduler::new();
-        scheduler
-            .submit(task("low", Priority::Low, true))
-            .unwrap();
+        scheduler.submit(task("low", Priority::Low, true)).unwrap();
         scheduler
             .submit(task("critical", Priority::Critical, true))
             .unwrap();
@@ -235,9 +230,7 @@ mod tests {
             .submit(task("work", Priority::Normal, true))
             .unwrap();
         scheduler.transition("work", TaskState::Running).unwrap();
-        scheduler
-            .transition("work", TaskState::Completed)
-            .unwrap();
+        scheduler.transition("work", TaskState::Completed).unwrap();
 
         assert_eq!(
             scheduler.transition("work", TaskState::Paused),
@@ -275,12 +268,8 @@ mod tests {
     #[test]
     fn snapshot_is_in_submission_order() {
         let mut scheduler = Scheduler::new();
-        scheduler
-            .submit(task("b", Priority::Low, true))
-            .unwrap();
-        scheduler
-            .submit(task("a", Priority::High, true))
-            .unwrap();
+        scheduler.submit(task("b", Priority::Low, true)).unwrap();
+        scheduler.submit(task("a", Priority::High, true)).unwrap();
 
         let snapshot = scheduler.snapshot();
         assert_eq!(snapshot[0].id, "b");
