@@ -7,7 +7,6 @@ use nova_memory::{InMemoryStore, MemoryError, MemoryQuery, MemoryRecord, MemoryS
 use nova_nexus::{parse, Intent, IntentError};
 use nova_planner::{ActionGraph, ActionNode, PlannerError};
 use nova_runtime::{execute_text, RuntimeError, Skill, SkillRegistry, SkillResult};
-use std::collections::HashMap;
 use thiserror::Error;
 
 pub mod task;
@@ -100,6 +99,25 @@ where
 
     pub fn start_task(&mut self, task_id: &str) -> Result<(), NovaError> {
         self.tasks.get_mut(task_id)?.start()?;
+        Ok(())
+    }
+
+    pub fn next_task_node(&mut self, task_id: &str) -> Result<ActionNode, NovaError> {
+        Ok(self.tasks.get_mut(task_id)?.next_ready_node()?)
+    }
+
+    pub fn complete_task_node(&mut self, task_id: &str) -> Result<bool, NovaError> {
+        Ok(self.tasks.get_mut(task_id)?.complete_current_node()?)
+    }
+
+    pub fn fail_task_node(
+        &mut self,
+        task_id: &str,
+        message: impl Into<String>,
+    ) -> Result<(), NovaError> {
+        self.tasks
+            .get_mut(task_id)?
+            .fail_current_node(message)?;
         Ok(())
     }
 
