@@ -132,7 +132,7 @@ impl Scheduler {
 
     pub fn snapshot(&self) -> Vec<TaskSnapshot> {
         let mut tasks: Vec<_> = self.tasks.values().cloned().collect();
-        tasks.sort_by(|left, right| left.sequence.cmp(&right.sequence));
+        tasks.sort_by_key(|task| task.sequence);
         tasks
     }
 }
