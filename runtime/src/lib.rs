@@ -194,7 +194,10 @@ mod tests {
 
     #[test]
     fn applies_confidence_policy() {
-        assert_eq!(execution_decision(&test_intent()), ExecutionDecision::Execute);
+        assert_eq!(
+            execution_decision(&test_intent()),
+            ExecutionDecision::Execute
+        );
 
         let mut intent = test_intent();
         intent.confidence = 0.80;
