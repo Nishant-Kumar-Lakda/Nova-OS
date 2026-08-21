@@ -1,0 +1,12 @@
+{
+  "id": "nova.intent.bootstrap",
+  "version": "0.1.0",
+  "format": "rule-engine",
+  "size_bytes": 0,
+  "context_tokens": 0,
+  "capabilities": ["intent"],
+  "minimum_memory_bytes": 0,
+  "architectures": ["arm64-v8a", "armeabi-v7a", "x86_64", "x86"],
+  "quantization": "none",
+  "checksum": "sha256:not-applicable"
+}
