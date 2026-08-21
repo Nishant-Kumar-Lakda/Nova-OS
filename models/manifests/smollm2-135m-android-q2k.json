@@ -1,0 +1,17 @@
+{
+  "id": "nova.local.smollm2-135m-instruct-q2k",
+  "version": "0.1.0",
+  "format": "gguf",
+  "source": "tensorblock/SmolLM2-135M-Instruct-GGUF",
+  "file": "SmolLM2-135M-Instruct-Q2_K.gguf",
+  "size_bytes": 88200000,
+  "context_tokens": 1024,
+  "capabilities": ["general", "intent_fallback", "planning_assist"],
+  "minimum_memory_bytes": 256000000,
+  "architectures": ["arm64-v8a", "armeabi-v7a", "x86_64", "x86"],
+  "quantization": "Q2_K",
+  "runtime": "llama.cpp",
+  "llama_cpp_commit": "9a286ac98d2cab74231bd3f1fc3f2b8bdf05422e",
+  "offline_runtime": true,
+  "checksum": "sha256:generated-at-build-time"
+}
