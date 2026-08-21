@@ -1,10 +1,12 @@
-use nova_air::backend::{InferenceBackend, InferenceEngine, InferenceError, InferenceRequest, InferenceResult};
+use nova_air::backend::{
+    InferenceBackend, InferenceEngine, InferenceError, InferenceRequest, InferenceResult,
+};
 use nova_air::ModelSpec;
-use nova_context::{ContextEngine, ContextSnapshot, ContextError, ContextEntity};
+use nova_context::{ContextEngine, ContextEntity, ContextError, ContextSnapshot};
 use nova_memory::{InMemoryStore, MemoryError, MemoryQuery, MemoryRecord, MemoryStore};
 use nova_nexus::{parse, Intent, IntentError};
 use nova_planner::{ActionGraph, ActionNode, PlannerError};
-use nova_runtime::{execute_text, RuntimeError, SkillRegistry, SkillResult};
+use nova_runtime::{execute_text, RuntimeError, Skill, SkillRegistry, SkillResult};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -59,11 +61,20 @@ where
         Ok(parse(input)?)
     }
 
+    pub fn register_skill(&mut self, skill: Box<dyn Skill>) -> Result<(), NovaError> {
+        self.skills.register(skill)?;
+        Ok(())
+    }
+
     pub fn execute_simple(&self, input: &str) -> Result<SkillResult, NovaError> {
         Ok(execute_text(&self.skills, input)?)
     }
 
-    pub fn plan(&self, id: impl Into<String>, nodes: Vec<ActionNode>) -> Result<ActionGraph, NovaError> {
+    pub fn plan(
+        &self,
+        id: impl Into<String>,
+        nodes: Vec<ActionNode>,
+    ) -> Result<ActionGraph, NovaError> {
         let mut graph = ActionGraph::new(id)?;
         for node in nodes {
             graph.add_node(node)?;
