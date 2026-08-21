@@ -8,6 +8,7 @@ description = "NOVA system orchestration layer"
 [dependencies]
 nova-air = { path = "../air" }
 nova-context = { path = "../context" }
+nova-core-skills = { path = "../skills/core" }
 nova-memory = { path = "../memory" }
 nova-nexus = { path = "../nexus" }
 nova-planner = { path = "../planner" }
