@@ -1,0 +1,14 @@
+[package]
+name = "nova-android-bridge"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "JNI bridge exposing NOVA core semantics to the Android shell"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+jni = "0.21"
+nova-nexus = { path = "../nexus" }
+serde_json = "1"
