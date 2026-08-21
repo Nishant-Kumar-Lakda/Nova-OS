@@ -1,0 +1,50 @@
+package org.nova.os;
+
+import android.app.Activity;
+import android.content.Context;
+import android.content.Intent;
+import android.os.BatteryManager;
+import android.provider.Settings;
+
+/**
+ * First Android platform adapter.
+ *
+ * Only explicitly allowed, low-risk operations are implemented. Device state
+ * changes such as Wi-Fi, Bluetooth, and flashlight control remain simulation-only.
+ */
+public final class AndroidPlatformAdapter implements NovaPlatformAdapter {
+    private final Activity activity;
+
+    public AndroidPlatformAdapter(Activity activity) {
+        this.activity = activity;
+    }
+
+    @Override
+    public String execute(NovaCommandRouter.Command command) throws Exception {
+        switch (command.action) {
+            case BATTERY_STATUS:
+                BatteryManager battery = (BatteryManager) activity.getSystemService(Context.BATTERY_SERVICE);
+                int percent = battery != null
+                        ? battery.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+                        : -1;
+                return "Battery: " + percent + "%";
+
+            case OPEN_SETTINGS:
+                activity.startActivity(new Intent(Settings.ACTION_SETTINGS));
+                return "Android Settings opened.";
+
+            case OPEN_CAMERA:
+                activity.startActivity(new Intent("android.media.action.IMAGE_CAPTURE"));
+                return "Camera launch requested.";
+
+            case FLASHLIGHT_SIMULATE:
+            case WIFI_SIMULATE:
+            case BLUETOOTH_SIMULATE:
+                return "SIMULATION ONLY. No device state was changed.";
+
+            case UNKNOWN:
+            default:
+                throw new IllegalArgumentException("Unsupported Android action: " + command.action);
+        }
+    }
+}
