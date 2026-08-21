@@ -1,3 +1,4 @@
+use crate::{AirError, ModelManager, ModelSpec};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -31,6 +32,14 @@ pub enum BackendError {
     Unavailable(String),
     #[error("inference failed: {0}")]
     InferenceFailed(String),
+}
+
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum InferenceError {
+    #[error(transparent)]
+    Model(#[from] AirError),
+    #[error(transparent)]
+    Backend(#[from] BackendError),
 }
 
 /// Stable AIR interface for local model engines.
@@ -70,6 +79,53 @@ impl InferenceBackend for EchoBackend {
     }
 }
 
+/// AIR's orchestration boundary between model residency and inference.
+/// It guarantees that the requested model is registered and resident before
+/// handing the request to a concrete backend.
+pub struct InferenceEngine<B> {
+    model_manager: ModelManager,
+    backend: B,
+}
+
+impl<B> InferenceEngine<B>
+where
+    B: InferenceBackend,
+{
+    pub fn new(memory_budget: u64, backend: B) -> Result<Self, AirError> {
+        Ok(Self {
+            model_manager: ModelManager::new(memory_budget)?,
+            backend,
+        })
+    }
+
+    pub fn register_model(&mut self, model: ModelSpec) -> Result<(), AirError> {
+        self.model_manager.register(model)
+    }
+
+    pub fn infer(&mut self, request: &InferenceRequest) -> Result<InferenceResult, InferenceError> {
+        if !self.backend.is_available() {
+            return Err(InferenceError::Backend(BackendError::Unavailable(
+                self.backend.name().into(),
+            )));
+        }
+
+        self.model_manager.load(&request.model_id)?;
+        Ok(self.backend.infer(request)?)
+    }
+
+    pub fn used_memory(&self) -> u64 {
+        self.model_manager.used_memory()
+    }
+
+    pub fn available_memory(&self) -> u64 {
+        self.model_manager.available_memory()
+    }
+
+    pub fn backend_name(&self) -> &'static str {
+        self.backend.name()
+    }
+}
+
 fn validate_request(request: &InferenceRequest) -> Result<(), BackendError> {
     if request.model_id.trim().is_empty() {
         return Err(BackendError::EmptyModelId);
@@ -93,6 +149,16 @@ mod tests {
             input: "turn on flashlight".into(),
             max_tokens: 16,
             temperature_millis: 0,
+        }
+    }
+
+    fn model(id: &str, size: u64) -> ModelSpec {
+        ModelSpec {
+            id: id.into(),
+            version: "0.1.0".into(),
+            size_bytes: size,
+            capabilities: vec!["intent".into()],
+            path: format!("models/{id}.bin"),
         }
     }
 
@@ -120,10 +186,7 @@ mod tests {
         let mut request = request();
         request.model_id.clear();
 
-        assert_eq!(
-            backend.infer(&request),
-            Err(BackendError::EmptyModelId)
-        );
+        assert_eq!(backend.infer(&request), Err(BackendError::EmptyModelId));
     }
 
     #[test]
@@ -144,6 +207,31 @@ mod tests {
         assert_eq!(
             backend.infer(&request),
             Err(BackendError::InvalidMaxTokens)
+        );
+    }
+
+    #[test]
+    fn engine_loads_model_before_inference() {
+        let mut engine = InferenceEngine::new(100, EchoBackend).unwrap();
+        engine.register_model(model("test.intent", 40)).unwrap();
+
+        let result = engine.infer(&request()).unwrap();
+
+        assert_eq!(result.text, "turn on flashlight");
+        assert_eq!(engine.used_memory(), 40);
+        assert_eq!(engine.available_memory(), 60);
+        assert_eq!(engine.backend_name(), "echo");
+    }
+
+    #[test]
+    fn engine_rejects_unregistered_model() {
+        let mut engine = InferenceEngine::new(100, EchoBackend).unwrap();
+
+        assert_eq!(
+            engine.infer(&request()),
+            Err(InferenceError::Model(AirError::ModelNotFound(
+                "test.intent".into()
+            )))
         );
     }
 }
