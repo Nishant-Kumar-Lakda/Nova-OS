@@ -72,9 +72,15 @@ impl ActionGraph {
         if self.nodes.iter().any(|existing| existing.id == node.id) {
             return Err(PlannerError::DuplicateNode(node.id));
         }
+
         node.state = NodeState::Pending;
         self.nodes.push(node);
-        self.validate()?;
+
+        if let Err(error) = self.validate() {
+            self.nodes.pop();
+            return Err(error);
+        }
+
         Ok(())
     }
 
@@ -148,6 +154,7 @@ impl ActionGraph {
     }
 
     pub fn topological_order(&self) -> Result<Vec<String>, PlannerError> {
+        let ids: HashSet<&str> = self.nodes.iter().map(|node| node.id.as_str()).collect();
         let mut indegree: HashMap<&str, usize> = self
             .nodes
             .iter()
@@ -157,6 +164,13 @@ impl ActionGraph {
 
         for node in &self.nodes {
             for dependency in &node.depends_on {
+                if !ids.contains(dependency.as_str()) {
+                    return Err(PlannerError::UnknownDependency {
+                        node: node.id.clone(),
+                        dependency: dependency.clone(),
+                    });
+                }
+
                 *indegree
                     .get_mut(node.id.as_str())
                     .expect("node exists in indegree") += 1;
@@ -201,10 +215,18 @@ impl ActionGraph {
 
 fn valid_transition(from: &NodeState, to: &NodeState) -> bool {
     match from {
-        NodeState::Pending => matches!(to, NodeState::Ready | NodeState::Cancelled | NodeState::Skipped),
-        NodeState::Ready => matches!(to, NodeState::Running | NodeState::Cancelled | NodeState::Skipped),
-        NodeState::Running => matches!(to, NodeState::Succeeded | NodeState::Failed | NodeState::Cancelled),
-        NodeState::Succeeded | NodeState::Failed | NodeState::Cancelled | NodeState::Skipped => false,
+        NodeState::Pending => {
+            matches!(to, NodeState::Ready | NodeState::Cancelled | NodeState::Skipped)
+        }
+        NodeState::Ready => {
+            matches!(to, NodeState::Running | NodeState::Cancelled | NodeState::Skipped)
+        }
+        NodeState::Running => {
+            matches!(to, NodeState::Succeeded | NodeState::Failed | NodeState::Cancelled)
+        }
+        NodeState::Succeeded | NodeState::Failed | NodeState::Cancelled | NodeState::Skipped => {
+            false
+        }
     }
 }
 
@@ -224,7 +246,7 @@ mod tests {
 
     #[test]
     fn rejects_empty_graph_id() {
-        assert_eq!(ActionGraph::new(""), Err(PlannerError::EmptyGraphId));
+        assert!(matches!(ActionGraph::new(""), Err(PlannerError::EmptyGraphId)));
     }
 
     #[test]
@@ -238,7 +260,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_unknown_dependency() {
+    fn rejects_unknown_dependency_without_mutating_graph() {
         let mut graph = ActionGraph::new("plan-1").unwrap();
         assert_eq!(
             graph.add_node(node("b", "files.read", vec!["missing"])),
@@ -247,6 +269,7 @@ mod tests {
                 dependency: "missing".into(),
             })
         );
+        assert!(graph.nodes.is_empty());
     }
 
     #[test]
