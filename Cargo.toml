@@ -1,5 +1,5 @@
 [workspace]
-members = ["nexus", "runtime", "air", "planner", "memory", "context", "core", "platform", "skills/core"]
+members = ["nexus", "runtime", "air", "planner", "memory", "context", "core", "platform", "skills/core", "android-bridge"]
 resolver = "2"
 
 [workspace.package]
