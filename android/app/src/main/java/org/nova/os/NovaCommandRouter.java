@@ -41,7 +41,12 @@ public final class NovaCommandRouter {
     private NovaCommandRouter() {
     }
 
-    public static Command fromNative(String input, String action, float confidence) {
+    public static Command fromNative(
+            String input,
+            String action,
+            float confidence,
+            String parameter
+    ) {
         Action mapped;
         switch (action) {
             case "battery.status":
@@ -72,7 +77,7 @@ public final class NovaCommandRouter {
                 mapped = Action.UNKNOWN;
                 break;
         }
-        return new Command(mapped, confidence, input);
+        return new Command(mapped, confidence, input, parameter);
     }
 
     public static Command route(String input) {
@@ -90,6 +95,9 @@ public final class NovaCommandRouter {
         }
         if (text.equals("camera") || text.equals("open camera")) {
             return new Command(Action.OPEN_CAMERA, 0.99f, input);
+        }
+        if (text.startsWith("open ") && text.length() > 5) {
+            return new Command(Action.APP_OPEN, 0.95f, input, text.substring(5).trim());
         }
         if (text.contains("flashlight") || text.contains("torch")) {
             return new Command(Action.FLASHLIGHT_SIMULATE, 0.99f, input);
