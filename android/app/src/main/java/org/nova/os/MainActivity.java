@@ -17,10 +17,12 @@ public class MainActivity extends Activity {
     private TextView output;
     private TextView status;
     private NovaAndroidEngine engine;
+    private LocalModelCatalog modelCatalog;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        modelCatalog = new LocalModelCatalog(this);
         engine = new NovaAndroidEngine(new AndroidPlatformAdapter(this));
         buildUi();
         refreshStatus();
@@ -66,6 +68,10 @@ public class MainActivity extends Activity {
         diagnostics.setText("Run Core Diagnostics");
         diagnostics.setOnClickListener(v -> output.setText(coreDiagnostics()));
 
+        Button models = new Button(this);
+        models.setText("Show Local Model Store");
+        models.setOnClickListener(v -> output.setText(modelCatalog.status()));
+
         output = new TextView(this);
         output.setTextSize(16);
         output.setPadding(0, 28, 0, 28);
@@ -90,6 +96,7 @@ public class MainActivity extends Activity {
         root.addView(execute, matchWrap());
         root.addView(cancel, matchWrap());
         root.addView(diagnostics, matchWrap());
+        root.addView(models, matchWrap());
         root.addView(output, matchWrap());
         root.addView(examples, matchWrap());
 
@@ -130,7 +137,8 @@ public class MainActivity extends Activity {
                     + "Memory: READY\n"
                     + "Context: READY\n"
                     + "Runtime: READY\n"
-                    + "Built-in Skills: READY";
+                    + "Built-in Skills: READY\n\n"
+                    + modelCatalog.status();
         }
         return "Native NOVA Core is not ready.\n\nReason: " + core.error;
     }
