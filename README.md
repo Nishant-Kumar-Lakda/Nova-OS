@@ -4,7 +4,7 @@ NOVA is an offline-first, AI-native operating system project.
 
 ## Vision
 
-NOVA treats intelligence as a system resource. A lightweight intent layer handles common device commands, while an AI Runtime (AIR) loads planners and specialist models only when required.
+NOVA treats intelligence as a system resource. A lightweight intent layer handles common device commands, while the AI Runtime (AIR) loads planners and specialist models only when required.
 
 ## Design Principles
 
@@ -14,6 +14,7 @@ NOVA treats intelligence as a system resource. A lightweight intent layer handle
 - Resource-aware: models are loaded, cached, suspended, and unloaded according to CPU/RAM/battery constraints.
 - Platform-independent core: Android and Linux integration live behind platform adapters.
 - Local privacy: user memory stays on-device by default.
+- Small-model first: simple operations should bypass generative inference entirely.
 
 ## Current Architecture
 
@@ -24,13 +25,17 @@ User Input
 NEXUS (intent understanding)
    |
    v
-NIL (structured intent)
+Context (active entities / current task)
    |
    v
-Planner (multi-step tasks)
+Planner (action graph)
    |
    v
-AIR (model/resource runtime)
+NOVA Core (orchestration)
+   |
+   +------> Memory (local state)
+   |
+   +------> AIR (models / scheduling / inference)
    |
    v
 Skill Runtime
@@ -44,19 +49,26 @@ Device / OS
 
 ## Repository Layout
 
-- `runtime/` — AIR runtime and resource management.
-- `nexus/` — intent understanding.
+- `core/` — top-level NOVA orchestration layer.
+- `runtime/` — skill registration, validation, confidence policy, and dispatch.
+- `nexus/` — intent understanding and NIL generation.
+- `planner/` — dependency-aware multi-step action graphs.
+- `memory/` — local memory abstraction and deterministic store.
+- `context/` — active entities, current app, active plan, and recent user context.
+- `air/` — model residency, scheduling, security, and inference backend abstraction.
 - `nil/` — NOVA Intent Language specification and schema.
-- `planner/` — action graph planning.
-- `memory/` — local memory subsystem.
-- `skills/` — capability modules.
+- `skills/` — capability modules and SDK specification.
 - `platform/` — Android/Linux platform adapters.
 - `models/` — model manifests and metadata; model binaries are not committed.
 - `tests/` — integration and conformance tests.
 - `docs/` — architecture and design documents.
 
+## Development Strategy
+
+NOVA is being built in layers. The core system is developed first; device integration and real model selection come afterward. Deterministic backends and local data structures provide the development substrate without requiring cloud services.
+
 ## Status
 
-**v0.1 — Foundation**
+**v0.2 — System Core in development**
 
-The first milestone is a deterministic offline pipeline that can convert a small set of commands into validated NIL actions and dispatch them to skills.
+Current foundations include NEXUS, the skill runtime, AIR model management and inference interfaces, the action graph planner, local memory, active context, and the NOVA orchestration layer.
