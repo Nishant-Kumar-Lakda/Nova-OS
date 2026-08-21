@@ -50,15 +50,9 @@ pub fn parse(input: &str) -> Result<Intent, IntentError> {
         "turn off wifi" | "turn off wi-fi" | "disable wifi" | "disable wi-fi"
     ) {
         ("wifi.disable", 0.99, serde_json::json!({}))
-    } else if matches!(
-        text.as_str(),
-        "turn on bluetooth" | "enable bluetooth"
-    ) {
+    } else if matches!(text.as_str(), "turn on bluetooth" | "enable bluetooth") {
         ("bluetooth.enable", 0.99, serde_json::json!({}))
-    } else if matches!(
-        text.as_str(),
-        "turn off bluetooth" | "disable bluetooth"
-    ) {
+    } else if matches!(text.as_str(), "turn off bluetooth" | "disable bluetooth") {
         ("bluetooth.disable", 0.99, serde_json::json!({}))
     } else if matches!(
         text.as_str(),
