@@ -3,7 +3,7 @@ name = "nova-android-bridge"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
-description = "JNI bridge exposing NOVA intent and Android resource policy to the Android shell"
+description = "JNI bridge exposing NOVA core semantics to the Android shell"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
