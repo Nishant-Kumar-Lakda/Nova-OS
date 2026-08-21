@@ -77,7 +77,7 @@ public class MainActivity extends Activity {
                 + "• open settings\n"
                 + "• open camera\n"
                 + "• open calculator\n"
-                + "• open browser\n"
+                + "• open browser → rejected in offline prototype\n"
                 + "• turn on flashlight (simulation)\n"
                 + "• turn on Wi-Fi (simulation)\n\n"
                 + "No Internet, accessibility, device-admin, SMS, contacts, microphone, Wi-Fi control, Bluetooth control, or flashlight-control permissions are requested.");
