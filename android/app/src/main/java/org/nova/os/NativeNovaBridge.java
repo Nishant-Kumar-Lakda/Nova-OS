@@ -3,11 +3,11 @@ package org.nova.os;
 import org.json.JSONObject;
 
 /**
- * Optional JNI bridge to the Rust NEXUS implementation.
+ * Optional JNI bridge to the Rust NEXUS and AIR implementations.
  *
  * Safe fallback: when the native library is not packaged yet, callers can
  * continue using the Android prototype router. The bridge itself never
- * executes Android operations; it only returns structured NIL JSON.
+ * executes Android operations; it only returns structured NOVA data.
  */
 public final class NativeNovaBridge {
     private static final boolean AVAILABLE;
@@ -56,7 +56,30 @@ public final class NativeNovaBridge {
         }
     }
 
+    public static long recommendModelBudget(AndroidResourceSnapshot resources) {
+        if (!AVAILABLE || resources == null) {
+            return 0L;
+        }
+        try {
+            return nativeRecommendModelBudget(
+                    resources.availableMemoryBytes,
+                    resources.batteryPercent,
+                    resources.isLowMemory(),
+                    resources.isLowBattery()
+            );
+        } catch (UnsatisfiedLinkError error) {
+            return 0L;
+        }
+    }
+
     private static native String nativeUnderstand(String input);
+
+    private static native long nativeRecommendModelBudget(
+            long availableMemoryBytes,
+            int batteryPercent,
+            boolean lowMemory,
+            boolean lowPower
+    );
 
     public static final class Result {
         public final boolean available;
