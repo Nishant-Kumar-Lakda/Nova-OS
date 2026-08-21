@@ -62,7 +62,8 @@ public final class NovaAndroidEngine {
             command = NovaCommandRouter.fromNative(
                     input,
                     nativeResult.action,
-                    nativeResult.confidence
+                    nativeResult.confidence,
+                    nativeResult.parameter
             );
             nativeUsed = true;
         } else {
