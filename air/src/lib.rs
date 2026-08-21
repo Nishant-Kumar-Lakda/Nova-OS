@@ -170,7 +170,7 @@ impl ModelManager {
                 }
             })
             .collect();
-        snapshots.sort_by(|a, b| a.id.cmp(&b.id));
+        snapshots.sort_by_key(|snapshot| snapshot.id.clone());
         snapshots
     }
 
@@ -197,7 +197,10 @@ mod tests {
 
     #[test]
     fn rejects_zero_budget() {
-        assert_eq!(ModelManager::new(0), Err(AirError::InvalidBudget));
+        assert!(matches!(
+            ModelManager::new(0),
+            Err(AirError::InvalidBudget)
+        ));
     }
 
     #[test]
