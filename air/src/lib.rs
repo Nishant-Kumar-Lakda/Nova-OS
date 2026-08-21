@@ -197,10 +197,7 @@ mod tests {
 
     #[test]
     fn rejects_zero_budget() {
-        assert!(matches!(
-            ModelManager::new(0),
-            Err(AirError::InvalidBudget)
-        ));
+        assert!(matches!(ModelManager::new(0), Err(AirError::InvalidBudget)));
     }
 
     #[test]
