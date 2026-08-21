@@ -1,0 +1,12 @@
+# Android build output
+android/.gradle/
+android/build/
+android/app/build/
+android/app/src/main/jniLibs/
+
+# Locally fetched llama.cpp source
+android/app/src/main/cpp/llama.cpp/
+
+# Bundled model is fetched during the Android build; do not commit the binary
+android/app/src/main/assets/models/*.gguf
+android/app/src/main/assets/models/*.sha256
