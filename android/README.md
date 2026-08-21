@@ -32,8 +32,8 @@ The prototype:
 - Does not toggle the flashlight.
 - Does not read contacts, SMS, notifications, files, microphone, or camera data.
 - Executes only battery status and benign Settings/Camera launches.
-- Only allowlisted app aliases can be launched (`settings`, `camera`, `calculator`, `browser`).
-- Unknown commands are rejected.
+- Only allowlisted app aliases can be launched (`settings`, `camera`, `calculator`).
+- Unknown or non-allowlisted app requests are rejected.
 
 Wi-Fi, Bluetooth, and flashlight commands are simulation-only so they cannot accidentally alter device state.
 
@@ -62,10 +62,6 @@ adb install -r app-debug.apk
 
 The app status line should then report `NEXUS: Rust/JNI` and `Core: READY`.
 
-## Core diagnostics
-
-The **Run Core Diagnostics** button verifies that the packaged native library can initialize the Rust NOVA Core and built-in skills without contacting a network.
-
 ## First commands
 
 ```text
@@ -73,13 +69,15 @@ battery status
 open settings
 open camera
 open calculator
-open browser
-turn on flashlight
-turn on Wi-Fi
-turn on Bluetooth
+open browser        # rejected in the offline prototype
+turn on flashlight  # simulation only
+turn on Wi-Fi       # simulation only
+turn on Bluetooth   # simulation only
 ```
 
-The final three remain simulation-only.
+## Core diagnostics
+
+The **Run Core Diagnostics** button verifies that the packaged native library can initialize the Rust NOVA Core and built-in skills without contacting a network.
 
 ## Offline AI status
 
