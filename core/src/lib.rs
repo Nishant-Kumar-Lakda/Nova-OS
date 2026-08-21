@@ -3,10 +3,14 @@ use nova_air::backend::{
 };
 use nova_air::ModelSpec;
 use nova_context::{ContextEngine, ContextEntity, ContextError, ContextSnapshot};
+use nova_core_skills::builtin_skills;
 use nova_memory::{InMemoryStore, MemoryError, MemoryQuery, MemoryRecord, MemoryStore};
 use nova_nexus::{parse, Intent, IntentError};
 use nova_planner::{ActionGraph, ActionNode, PlannerError};
-use nova_runtime::{execute_text, RuntimeError, Skill, SkillRegistry, SkillResult};
+use nova_platform::Platform;
+use nova_runtime::{
+    execute_text, execute_with_platform, RuntimeError, Skill, SkillRegistry, SkillResult,
+};
 use thiserror::Error;
 
 pub mod task;
@@ -34,8 +38,8 @@ pub enum NovaError {
 }
 
 /// Top-level NOVA orchestration layer. It connects intent understanding,
-/// planning, memory, context, skills, task lifecycle, and AIR without tying
-/// them to a phone or desktop platform.
+/// planning, memory, context, skills, task lifecycle, AIR, and platform
+/// execution without tying the core to Android, Linux, or Windows.
 pub struct NovaEngine<B>
 where
     B: InferenceBackend,
@@ -62,6 +66,13 @@ where
             skills: SkillRegistry::new(),
             tasks: TaskManager::new(),
         })
+    }
+
+    pub fn register_builtin_skills(&mut self) -> Result<(), NovaError> {
+        for skill in builtin_skills() {
+            self.register_skill(skill)?;
+        }
+        Ok(())
     }
 
     pub fn understand(&mut self, input: &str) -> Result<Intent, NovaError> {
@@ -145,6 +156,15 @@ where
         Ok(execute_text(&self.skills, input)?)
     }
 
+    pub fn execute_simple_on_platform(
+        &self,
+        input: &str,
+        platform: &dyn Platform,
+    ) -> Result<SkillResult, NovaError> {
+        let intent = parse(input)?;
+        Ok(execute_with_platform(&self.skills, &intent, platform)?)
+    }
+
     pub fn plan(
         &self,
         id: impl Into<String>,
@@ -199,6 +219,7 @@ where
 mod tests {
     use super::*;
     use nova_air::backend::EchoBackend;
+    use nova_platform::MockPlatform;
 
     #[test]
     fn creates_and_understands_task() {
@@ -217,5 +238,17 @@ mod tests {
         nova.create_task("turn on flashlight").unwrap();
 
         assert_eq!(nova.task_snapshot().len(), 2);
+    }
+
+    #[test]
+    fn builtins_execute_against_mock_platform() {
+        let mut nova = NovaEngine::new(1024, EchoBackend, 8).unwrap();
+        nova.register_builtin_skills().unwrap();
+        let platform = MockPlatform::new(92).unwrap();
+
+        let battery = nova
+            .execute_simple_on_platform("check battery", &platform)
+            .unwrap();
+        assert_eq!(battery.data["battery_percent"], 92);
     }
 }
