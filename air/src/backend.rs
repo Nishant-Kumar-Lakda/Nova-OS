@@ -1,4 +1,4 @@
-use crate::{AirError, ModelManager, ModelSpec};
+use crate::{AirError, ModelManager, ModelSpec, ResourcePolicy, ResourceSnapshot};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -85,6 +85,7 @@ impl InferenceBackend for EchoBackend {
 pub struct InferenceEngine<B> {
     model_manager: ModelManager,
     backend: B,
+    resource_policy: ResourcePolicy,
 }
 
 impl<B> InferenceEngine<B>
@@ -95,11 +96,17 @@ where
         Ok(Self {
             model_manager: ModelManager::new(memory_budget)?,
             backend,
+            resource_policy: ResourcePolicy::default(),
         })
     }
 
     pub fn register_model(&mut self, model: ModelSpec) -> Result<(), AirError> {
         self.model_manager.register(model)
+    }
+
+    pub fn apply_resource_snapshot(&mut self, snapshot: ResourceSnapshot) -> Result<u64, AirError> {
+        self.model_manager
+            .apply_resource_policy(self.resource_policy, snapshot)
     }
 
     pub fn infer(&mut self, request: &InferenceRequest) -> Result<InferenceResult, InferenceError> {
@@ -119,6 +126,10 @@ where
 
     pub fn available_memory(&self) -> u64 {
         self.model_manager.available_memory()
+    }
+
+    pub fn memory_budget(&self) -> u64 {
+        self.model_manager.memory_budget()
     }
 
     pub fn backend_name(&self) -> &'static str {
@@ -233,5 +244,21 @@ mod tests {
                 "test.intent".into()
             )))
         );
+    }
+
+    #[test]
+    fn engine_applies_android_style_resource_snapshot() {
+        let mut engine = InferenceEngine::new(500_000_000, EchoBackend).unwrap();
+        let budget = engine
+            .apply_resource_snapshot(ResourceSnapshot {
+                available_memory_bytes: 1_000_000_000,
+                battery_percent: 15,
+                low_memory: false,
+                low_power: true,
+            })
+            .unwrap();
+
+        assert_eq!(budget, 150_000_000);
+        assert_eq!(engine.memory_budget(), 150_000_000);
     }
 }
