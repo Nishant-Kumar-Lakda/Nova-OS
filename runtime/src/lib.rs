@@ -72,7 +72,13 @@ impl SkillRegistry {
     pub fn find_for_action(&self, action: &str) -> Option<&dyn Skill> {
         self.skills
             .iter()
-            .find(|skill| skill.metadata().actions.iter().any(|supported| supported == action))
+            .find(|skill| {
+                skill
+                    .metadata()
+                    .actions
+                    .iter()
+                    .any(|supported| supported == action)
+            })
             .map(|skill| skill.as_ref())
     }
 
@@ -121,12 +127,9 @@ pub fn execute(registry: &SkillRegistry, intent: &Intent) -> Result<SkillResult,
 
 /// End-to-end local pipeline: text -> NEXUS -> NIL validation -> skill dispatch.
 /// No network or cloud service is involved.
-pub fn execute_text(
-    registry: &SkillRegistry,
-    input: &str,
-) -> Result<SkillResult, RuntimeError> {
-    let intent = parse(input)
-        .map_err(|error| RuntimeError::IntentParsingFailed(error.to_string()))?;
+pub fn execute_text(registry: &SkillRegistry, input: &str) -> Result<SkillResult, RuntimeError> {
+    let intent =
+        parse(input).map_err(|error| RuntimeError::IntentParsingFailed(error.to_string()))?;
 
     match execution_decision(&intent) {
         ExecutionDecision::Execute => execute(registry, &intent),
@@ -191,23 +194,14 @@ mod tests {
 
     #[test]
     fn applies_confidence_policy() {
-        assert_eq!(
-            execution_decision(&test_intent()),
-            ExecutionDecision::Execute
-        );
+        assert_eq!(execution_decision(&test_intent()), ExecutionDecision::Execute);
 
         let mut intent = test_intent();
         intent.confidence = 0.80;
-        assert_eq!(
-            execution_decision(&intent),
-            ExecutionDecision::Confirm
-        );
+        assert_eq!(execution_decision(&intent), ExecutionDecision::Confirm);
 
         intent.confidence = 0.60;
-        assert_eq!(
-            execution_decision(&intent),
-            ExecutionDecision::Clarify
-        );
+        assert_eq!(execution_decision(&intent), ExecutionDecision::Clarify);
     }
 
     #[test]
