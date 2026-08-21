@@ -15,6 +15,7 @@ import java.util.Locale;
 /** Android-first NOVA prototype shell. */
 public class MainActivity extends Activity {
     private TextView output;
+    private TextView status;
     private NovaAndroidEngine engine;
 
     @Override
@@ -22,6 +23,7 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         engine = new NovaAndroidEngine(new AndroidPlatformAdapter(this));
         buildUi();
+        refreshStatus();
     }
 
     private void buildUi() {
@@ -38,7 +40,12 @@ public class MainActivity extends Activity {
         mode.setText("ANDROID FIRST • SAFE MODE • OFFLINE");
         mode.setTextSize(15);
         mode.setGravity(Gravity.CENTER_HORIZONTAL);
-        mode.setPadding(0, 8, 0, 24);
+        mode.setPadding(0, 8, 0, 18);
+
+        status = new TextView(this);
+        status.setTextSize(13);
+        status.setGravity(Gravity.CENTER_HORIZONTAL);
+        status.setPadding(0, 0, 0, 18);
 
         EditText command = new EditText(this);
         command.setHint("Try: battery status, open settings, open camera");
@@ -72,6 +79,7 @@ public class MainActivity extends Activity {
 
         root.addView(title, matchWrap());
         root.addView(mode, matchWrap());
+        root.addView(status, matchWrap());
         root.addView(command, matchWrap());
         root.addView(execute, matchWrap());
         root.addView(cancel, matchWrap());
@@ -83,7 +91,20 @@ public class MainActivity extends Activity {
         setContentView(scroll);
     }
 
+    private void refreshStatus() {
+        AndroidResourceSnapshot resources = AndroidResourceSnapshot.read(this);
+        status.setText(String.format(
+                Locale.ROOT,
+                "Rust NEXUS: %s • RAM available: %d MB • Battery: %d%%",
+                NativeNovaBridge.isAvailable() ? "AVAILABLE" : "FALLBACK",
+                resources.availableMemoryBytes / (1024 * 1024),
+                resources.batteryPercent
+        ));
+    }
+
     private void handle(String input) {
+        refreshStatus();
+
         NovaAndroidEngine.ExecutionResult result = engine.execute(input);
         if (result.task == null) {
             output.setText(result.message);
@@ -101,6 +122,9 @@ public class MainActivity extends Activity {
                     .append("\n");
             text.append(String.format(Locale.ROOT, "Confidence: %.2f\n", command.confidence));
         }
+        text.append("NEXUS source: ")
+                .append(result.nativeNexusUsed ? "Rust/JNI" : "Android fallback")
+                .append("\n");
         text.append("Decision: ").append(result.decision).append("\n");
         text.append("State: ").append(task.getState()).append("\n\n");
         text.append(result.message);
