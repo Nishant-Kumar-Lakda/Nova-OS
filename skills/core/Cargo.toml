@@ -1,0 +1,12 @@
+[package]
+name = "nova-core-skills"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Built-in NOVA device capability skills"
+
+[dependencies]
+nova-platform = { path = "../../platform" }
+nova-runtime = { path = "../../runtime" }
+nova-nexus = { path = "../../nexus" }
+serde_json = "1"
