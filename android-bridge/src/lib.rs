@@ -16,8 +16,11 @@ pub extern "system" fn Java_org_nova_os_NativeNovaBridge_nativeUnderstand(
 ) -> jstring {
     let result = match env.get_string(&input) {
         Ok(value) => match parse(value.to_str().unwrap_or_default()) {
-            Ok(intent) => serde_json::to_string(&intent)
-                .unwrap_or_else(|_| error_json("serialization_failed")),
+            Ok(intent) => serde_json::json!({
+                "ok": true,
+                "intent": intent,
+            })
+            .to_string(),
             Err(error) => error_json(error.to_string().as_str()),
         },
         Err(error) => error_json(error.to_string().as_str()),
@@ -42,7 +45,7 @@ pub extern "system" fn Java_org_nova_os_NativeNovaBridge_nativeRecommendModelBud
     low_memory: jboolean,
     low_power: jboolean,
 ) -> jlong {
-    if available_memory_bytes < 0 || battery_percent < 0 || battery_percent > 100 {
+    if available_memory_bytes < 0 || !(0..=100).contains(&battery_percent) {
         return 0;
     }
 
@@ -96,6 +99,9 @@ mod tests {
         };
 
         let policy = ResourcePolicy::default();
-        assert!(policy.recommended_model_budget(low_power) < policy.recommended_model_budget(normal));
+        assert!(
+            policy.recommended_model_budget(low_power)
+                < policy.recommended_model_budget(normal)
+        );
     }
 }
