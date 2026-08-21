@@ -10,6 +10,8 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.Locale;
 
 /** Android-first NOVA prototype shell. */
@@ -50,7 +52,7 @@ public class MainActivity extends Activity {
         status.setPadding(0, 0, 0, 18);
 
         EditText command = new EditText(this);
-        command.setHint("Try: battery status, open settings, open camera");
+        command.setHint("Try: battery status, open settings, ask NOVA anything");
         command.setSingleLine(true);
 
         Button execute = new Button(this);
@@ -69,8 +71,8 @@ public class MainActivity extends Activity {
         diagnostics.setOnClickListener(v -> output.setText(coreDiagnostics()));
 
         Button models = new Button(this);
-        models.setText("Show Local Model Store");
-        models.setOnClickListener(v -> output.setText(modelCatalog.status()));
+        models.setText("Initialize Local AI Model");
+        models.setOnClickListener(v -> initializeLocalModel());
 
         output = new TextView(this);
         output.setTextSize(16);
@@ -83,7 +85,7 @@ public class MainActivity extends Activity {
                 + "• open settings\n"
                 + "• open camera\n"
                 + "• open calculator\n"
-                + "• open browser → rejected in offline prototype\n"
+                + "• ask NOVA: explain what airplane mode does\n"
                 + "• turn on flashlight (simulation)\n"
                 + "• turn on Wi-Fi (simulation)\n\n"
                 + "No Internet, accessibility, device-admin, SMS, contacts, microphone, Wi-Fi control, Bluetooth control, or flashlight-control permissions are requested.");
@@ -105,21 +107,32 @@ public class MainActivity extends Activity {
         setContentView(scroll);
     }
 
+    private void initializeLocalModel() {
+        try {
+            File model = NativeModelBridge.ensureBundledModel(this);
+            output.setText("Local AI model ready.\n\n" + model.getName() + "\n" + model.length() + " bytes\n\nNo network connection is used at runtime.");
+        } catch (IOException error) {
+            output.setText("Unable to initialize local model: " + error.getMessage());
+        }
+    }
+
     private void refreshStatus() {
         AndroidResourceSnapshot resources = AndroidResourceSnapshot.read(this);
         long budget = NativeNovaBridge.recommendModelBudget(resources);
         NativeNovaBridge.CoreStatus core = NativeNovaBridge.bootDiagnostics();
         String source = NativeNovaBridge.isAvailable() ? "Rust/JNI" : "Java fallback";
         String coreStatus = core.ready ? "READY" : (core.available ? "ERROR" : "FALLBACK");
+        String modelStatus = NativeModelBridge.isAvailable() ? "READY" : "UNAVAILABLE";
         String budgetText = budget > 0
                 ? String.format(Locale.ROOT, "%d MB", budget / (1024 * 1024))
                 : "pending";
 
         status.setText(String.format(
                 Locale.ROOT,
-                "NEXUS: %s • Core: %s • RAM: %d MB • Battery: %d%% • AIR budget: %s",
+                "NEXUS: %s • Core: %s • AI: %s • RAM: %d MB • Battery: %d%% • AIR budget: %s",
                 source,
                 coreStatus,
+                modelStatus,
                 resources.availableMemoryBytes / (1024 * 1024),
                 resources.batteryPercent,
                 budgetText
@@ -137,7 +150,8 @@ public class MainActivity extends Activity {
                     + "Memory: READY\n"
                     + "Context: READY\n"
                     + "Runtime: READY\n"
-                    + "Built-in Skills: READY\n\n"
+                    + "Built-in Skills: READY\n"
+                    + "Local AI bridge: " + (NativeModelBridge.isAvailable() ? "READY" : "UNAVAILABLE") + "\n\n"
                     + modelCatalog.status();
         }
         return "Native NOVA Core is not ready.\n\nReason: " + core.error;
@@ -172,6 +186,17 @@ public class MainActivity extends Activity {
         text.append("Decision: ").append(result.decision).append("\n");
         text.append("State: ").append(task.getState()).append("\n\n");
         text.append(result.message);
+
+        if (result.decision == NovaSafetyGate.Decision.REJECT && NativeModelBridge.isAvailable()
+                && input != null && !input.trim().isEmpty()) {
+            NativeModelBridge.Result ai = NativeModelBridge.generate(this, input, 64);
+            if (ai.success) {
+                text.append("\n\nOffline AI response:\n").append(ai.text.trim());
+            } else {
+                text.append("\n\nOffline AI unavailable: ").append(ai.error);
+            }
+        }
+
         output.setText(text.toString());
     }
 
