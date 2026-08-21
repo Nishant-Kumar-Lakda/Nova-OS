@@ -1,3 +1,5 @@
+pub mod scheduler;
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use thiserror::Error;
@@ -12,7 +14,6 @@ pub struct ModelSpec {
     pub path: String,
 }
 
-/// Current residency state of a model.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ModelState {
     Registered,
@@ -41,10 +42,6 @@ pub enum AirError {
     InvalidBudget,
 }
 
-/// AIR model registry and memory-aware residency manager.
-///
-/// This layer deliberately does not perform inference yet. It owns model
-/// lifecycle policy so inference engines can be swapped in later.
 pub struct ModelManager {
     registry: HashMap<String, ModelSpec>,
     loaded: HashMap<String, LoadedModel>,
@@ -100,9 +97,6 @@ impl ModelManager {
         self.loaded.contains_key(model_id)
     }
 
-    /// Load a registered model into the AIR residency cache.
-    ///
-    /// Models are evicted least-recently-used until the new model fits.
     pub fn load(&mut self, model_id: &str) -> Result<(), AirError> {
         let spec = self
             .registry
@@ -155,7 +149,8 @@ impl ModelManager {
     }
 
     pub fn snapshot(&self) -> Vec<ModelSnapshot> {
-        self.registry
+        let mut snapshots: Vec<_> = self
+            .registry
             .values()
             .map(|spec| {
                 if let Some(loaded) = self.loaded.get(&spec.id) {
@@ -174,7 +169,9 @@ impl ModelManager {
                     }
                 }
             })
-            .collect()
+            .collect();
+        snapshots.sort_by(|a, b| a.id.cmp(&b.id));
+        snapshots
     }
 
     fn unload_internal(&mut self, model_id: &str) {
@@ -201,6 +198,12 @@ mod tests {
     #[test]
     fn rejects_zero_budget() {
         assert_eq!(ModelManager::new(0), Err(AirError::InvalidBudget));
+    }
+
+    #[test]
+    fn rejects_empty_model_id() {
+        let mut manager = ModelManager::new(100).unwrap();
+        assert_eq!(manager.register(model("", 10)), Err(AirError::EmptyModelId));
     }
 
     #[test]
@@ -240,21 +243,25 @@ mod tests {
     fn loading_same_model_does_not_double_count_memory() {
         let mut manager = ModelManager::new(100).unwrap();
         manager.register(model("intent", 30)).unwrap();
-
         manager.load("intent").unwrap();
         manager.load("intent").unwrap();
-
         assert_eq!(manager.used_memory(), 30);
+    }
+
+    #[test]
+    fn unloading_unknown_model_returns_error() {
+        let mut manager = ModelManager::new(100).unwrap();
+        assert_eq!(
+            manager.unload("missing"),
+            Err(AirError::ModelNotFound("missing".into()))
+        );
     }
 
     #[test]
     fn rejects_model_larger_than_budget() {
         let mut manager = ModelManager::new(50).unwrap();
         manager.register(model("large", 51)).unwrap();
-        assert_eq!(
-            manager.load("large"),
-            Err(AirError::ModelExceedsBudget(51))
-        );
+        assert_eq!(manager.load("large"), Err(AirError::ModelExceedsBudget(51)));
         assert_eq!(manager.used_memory(), 0);
     }
 
@@ -267,7 +274,7 @@ mod tests {
 
         manager.load("a").unwrap();
         manager.load("b").unwrap();
-        manager.load("a").unwrap(); // refresh a; b is now oldest
+        manager.load("a").unwrap();
         manager.load("c").unwrap();
 
         assert!(manager.is_loaded("a"));
@@ -277,28 +284,16 @@ mod tests {
     }
 
     #[test]
-    fn load_unknown_model_returns_error() {
+    fn snapshot_reports_deterministic_residency() {
         let mut manager = ModelManager::new(100).unwrap();
-        assert_eq!(
-            manager.load("missing"),
-            Err(AirError::ModelNotFound("missing".into()))
-        );
-    }
-
-    #[test]
-    fn snapshot_reports_residency() {
-        let mut manager = ModelManager::new(100).unwrap();
-        manager.register(model("intent", 30)).unwrap();
         manager.register(model("planner", 50)).unwrap();
+        manager.register(model("intent", 30)).unwrap();
         manager.load("planner").unwrap();
 
         let snapshots = manager.snapshot();
-        assert_eq!(snapshots.len(), 2);
-        assert!(snapshots
-            .iter()
-            .any(|item| item.id == "planner" && item.state == ModelState::Loaded));
-        assert!(snapshots
-            .iter()
-            .any(|item| item.id == "intent" && item.state == ModelState::Registered));
+        assert_eq!(snapshots[0].id, "intent");
+        assert_eq!(snapshots[0].state, ModelState::Registered);
+        assert_eq!(snapshots[1].id, "planner");
+        assert_eq!(snapshots[1].state, ModelState::Loaded);
     }
 }
