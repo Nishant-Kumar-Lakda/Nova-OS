@@ -30,19 +30,40 @@ pub fn parse(input: &str) -> Result<Intent, IntentError> {
         return Err(IntentError::EmptyInput);
     }
 
-    let (action, confidence, parameters) = if matches!(text.as_str(), "turn on flashlight" | "turn on the flashlight" | "flashlight on") {
+    let (action, confidence, parameters) = if matches!(
+        text.as_str(),
+        "turn on flashlight" | "turn on the flashlight" | "flashlight on"
+    ) {
         ("flashlight.on", 0.99, serde_json::json!({}))
-    } else if matches!(text.as_str(), "turn off flashlight" | "turn off the flashlight" | "flashlight off") {
+    } else if matches!(
+        text.as_str(),
+        "turn off flashlight" | "turn off the flashlight" | "flashlight off"
+    ) {
         ("flashlight.off", 0.99, serde_json::json!({}))
-    } else if matches!(text.as_str(), "turn on wifi" | "turn on wi-fi" | "enable wifi" | "enable wi-fi") {
+    } else if matches!(
+        text.as_str(),
+        "turn on wifi" | "turn on wi-fi" | "enable wifi" | "enable wi-fi"
+    ) {
         ("wifi.enable", 0.99, serde_json::json!({}))
-    } else if matches!(text.as_str(), "turn off wifi" | "turn off wi-fi" | "disable wifi" | "disable wi-fi") {
+    } else if matches!(
+        text.as_str(),
+        "turn off wifi" | "turn off wi-fi" | "disable wifi" | "disable wi-fi"
+    ) {
         ("wifi.disable", 0.99, serde_json::json!({}))
-    } else if matches!(text.as_str(), "turn on bluetooth" | "enable bluetooth") {
+    } else if matches!(
+        text.as_str(),
+        "turn on bluetooth" | "enable bluetooth"
+    ) {
         ("bluetooth.enable", 0.99, serde_json::json!({}))
-    } else if matches!(text.as_str(), "turn off bluetooth" | "disable bluetooth") {
+    } else if matches!(
+        text.as_str(),
+        "turn off bluetooth" | "disable bluetooth"
+    ) {
         ("bluetooth.disable", 0.99, serde_json::json!({}))
-    } else if matches!(text.as_str(), "battery status" | "show battery" | "check battery") {
+    } else if matches!(
+        text.as_str(),
+        "battery status" | "show battery" | "check battery"
+    ) {
         ("battery.status", 0.99, serde_json::json!({}))
     } else {
         return Err(IntentError::UnsupportedCommand);
@@ -81,7 +102,10 @@ mod tests {
 
     #[test]
     fn rejects_unknown_command() {
-        assert_eq!(parse("do something complicated"), Err(IntentError::UnsupportedCommand));
+        assert_eq!(
+            parse("do something complicated"),
+            Err(IntentError::UnsupportedCommand)
+        );
     }
 
     #[test]
