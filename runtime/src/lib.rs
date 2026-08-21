@@ -58,7 +58,11 @@ impl SkillRegistry {
 
     pub fn register(&mut self, skill: Box<dyn Skill>) -> Result<(), RuntimeError> {
         let metadata = skill.metadata();
-        if self.skills.iter().any(|existing| existing.metadata().id == metadata.id) {
+        if self
+            .skills
+            .iter()
+            .any(|existing| existing.metadata().id == metadata.id)
+        {
             return Err(RuntimeError::DuplicateSkill(metadata.id));
         }
         self.skills.push(skill);
@@ -117,7 +121,10 @@ pub fn execute(registry: &SkillRegistry, intent: &Intent) -> Result<SkillResult,
 
 /// End-to-end local pipeline: text -> NEXUS -> NIL validation -> skill dispatch.
 /// No network or cloud service is involved.
-pub fn execute_text(registry: &SkillRegistry, input: &str) -> Result<SkillResult, RuntimeError> {
+pub fn execute_text(
+    registry: &SkillRegistry,
+    input: &str,
+) -> Result<SkillResult, RuntimeError> {
     let intent = parse(input)
         .map_err(|error| RuntimeError::IntentParsingFailed(error.to_string()))?;
 
@@ -184,14 +191,23 @@ mod tests {
 
     #[test]
     fn applies_confidence_policy() {
-        assert_eq!(execution_decision(&test_intent()), ExecutionDecision::Execute);
+        assert_eq!(
+            execution_decision(&test_intent()),
+            ExecutionDecision::Execute
+        );
 
         let mut intent = test_intent();
         intent.confidence = 0.80;
-        assert_eq!(execution_decision(&intent), ExecutionDecision::Confirm);
+        assert_eq!(
+            execution_decision(&intent),
+            ExecutionDecision::Confirm
+        );
 
         intent.confidence = 0.60;
-        assert_eq!(execution_decision(&intent), ExecutionDecision::Clarify);
+        assert_eq!(
+            execution_decision(&intent),
+            ExecutionDecision::Clarify
+        );
     }
 
     #[test]
