@@ -7,6 +7,11 @@ on:
       - "android-bridge/**"
       - "android/**"
       - "nexus/**"
+      - "air/**"
+      - "core/**"
+      - "runtime/**"
+      - "platform/**"
+      - "skills/core/**"
       - "Cargo.toml"
       - "Cargo.lock"
 
@@ -65,15 +70,28 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build Android APK with Rust NEXUS bridge
+      - name: Build Android APK with Rust NOVA bridge
         working-directory: android
         run: gradle --no-daemon testDebugUnitTest assembleDebug
+
+      - name: Verify built APK permissions
+        shell: bash
+        run: |
+          set -euo pipefail
+          aapt dump permissions android/app/build/outputs/apk/debug/app-debug.apk > /tmp/nova-permissions.txt
+          ! grep -E 'android.permission\.(INTERNET|ACCESSIBILITY_SERVICE|BIND_ACCESSIBILITY_SERVICE|WRITE_SETTINGS|BLUETOOTH_CONNECT|BLUETOOTH_SCAN|BLUETOOTH_ADMIN|CHANGE_WIFI_STATE|READ_CONTACTS|READ_SMS|RECEIVE_SMS|RECORD_AUDIO|POST_NOTIFICATIONS)' /tmp/nova-permissions.txt
+
+      - name: Generate APK checksum
+        working-directory: android/app/build/outputs/apk/debug
+        run: sha256sum app-debug.apk > app-debug.apk.sha256
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: nova-android-native-debug
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: |
+            android/app/build/outputs/apk/debug/app-debug.apk
+            android/app/build/outputs/apk/debug/app-debug.apk.sha256
 
       - name: Upload native libraries
         uses: actions/upload-artifact@v4
