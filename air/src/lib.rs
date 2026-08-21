@@ -1,6 +1,9 @@
 pub mod backend;
+pub mod resource_policy;
 pub mod scheduler;
 pub mod security;
+
+pub use resource_policy::{PowerMode, ResourcePolicy, ResourceSnapshot};
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
