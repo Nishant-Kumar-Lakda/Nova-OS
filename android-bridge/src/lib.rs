@@ -1,7 +1,9 @@
 use jni::objects::{JClass, JString};
 use jni::sys::{jboolean, jint, jlong, jstring};
 use jni::JNIEnv;
+use nova_air::backend::EchoBackend;
 use nova_air::{ResourcePolicy, ResourceSnapshot};
+use nova_core::NovaEngine;
 use nova_nexus::parse;
 
 /// JNI entry point used by the Android shell.
@@ -59,6 +61,46 @@ pub extern "system" fn Java_org_nova_os_NativeNovaBridge_nativeRecommendModelBud
     ResourcePolicy::default().recommended_model_budget(snapshot) as jlong
 }
 
+/// Boots the complete Rust NOVA Core in a deterministic development profile.
+/// This is a diagnostics endpoint: it verifies that Core, AIR, Planner,
+/// Memory, Context, Runtime, and built-in Skills can initialize together.
+#[no_mangle]
+pub extern "system" fn Java_org_nova_os_NativeNovaBridge_nativeBootDiagnostics(
+    mut env: JNIEnv,
+    _class: JClass,
+) -> jstring {
+    let result = match NovaEngine::new(128 * 1024 * 1024, EchoBackend, 16) {
+        Ok(mut nova) => match nova.register_builtin_skills() {
+            Ok(()) => serde_json::json!({
+                "ok": true,
+                "core": true,
+                "air": true,
+                "planner": true,
+                "memory": true,
+                "context": true,
+                "runtime": true,
+                "skills": true,
+            })
+            .to_string(),
+            Err(error) => serde_json::json!({
+                "ok": false,
+                "error": error.to_string(),
+            })
+            .to_string(),
+        },
+        Err(error) => serde_json::json!({
+            "ok": false,
+            "error": error.to_string(),
+        })
+        .to_string(),
+    };
+
+    match env.new_string(result) {
+        Ok(value) => value.into_raw(),
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
 fn error_json(message: &str) -> String {
     serde_json::json!({
         "ok": false,
@@ -103,5 +145,11 @@ mod tests {
             policy.recommended_model_budget(low_power)
                 < policy.recommended_model_budget(normal)
         );
+    }
+
+    #[test]
+    fn nova_core_can_boot_with_builtins() {
+        let mut nova = NovaEngine::new(128 * 1024 * 1024, EchoBackend, 16).unwrap();
+        assert!(nova.register_builtin_skills().is_ok());
     }
 }
