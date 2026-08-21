@@ -1,0 +1,14 @@
+[package]
+name = "nova-core"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "NOVA system orchestration layer"
+
+[dependencies]
+nova-air = { path = "../air" }
+nova-context = { path = "../context" }
+nova-memory = { path = "../memory" }
+nova-nexus = { path = "../nexus" }
+nova-planner = { path = "../planner" }
+nova-runtime = { path = "../runtime" }
