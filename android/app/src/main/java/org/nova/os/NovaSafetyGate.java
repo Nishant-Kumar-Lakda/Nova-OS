@@ -39,7 +39,6 @@ public final class NovaSafetyGate {
         }
         switch (parameter.trim().toLowerCase(Locale.ROOT)) {
             case "calculator":
-            case "browser":
             case "settings":
             case "camera":
                 return true;
