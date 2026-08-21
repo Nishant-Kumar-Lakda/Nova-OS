@@ -93,12 +93,18 @@ public class MainActivity extends Activity {
 
     private void refreshStatus() {
         AndroidResourceSnapshot resources = AndroidResourceSnapshot.read(this);
+        long aiBudget = NativeNovaBridge.recommendModelBudget(resources);
+        String budgetText = aiBudget > 0
+                ? String.format(Locale.ROOT, " • AIR budget: %d MB", aiBudget / (1024 * 1024))
+                : " • AIR budget: pending native bridge";
+
         status.setText(String.format(
                 Locale.ROOT,
-                "Rust NEXUS: %s • RAM available: %d MB • Battery: %d%%",
+                "Rust NEXUS: %s • RAM available: %d MB • Battery: %d%%%s",
                 NativeNovaBridge.isAvailable() ? "AVAILABLE" : "FALLBACK",
                 resources.availableMemoryBytes / (1024 * 1024),
-                resources.batteryPercent
+                resources.batteryPercent,
+                budgetText
         ));
     }
 
