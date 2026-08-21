@@ -1,0 +1,26 @@
+[
+  {
+    "version": "0.1",
+    "action": "flashlight.on",
+    "parameters": {},
+    "context": {},
+    "confidence": 0.99,
+    "constraints": {}
+  },
+  {
+    "version": "0.1",
+    "action": "wifi.enable",
+    "parameters": {},
+    "context": {},
+    "confidence": 0.99,
+    "constraints": {}
+  },
+  {
+    "version": "0.1",
+    "action": "battery.status",
+    "parameters": {},
+    "context": {},
+    "confidence": 0.99,
+    "constraints": {}
+  }
+]
