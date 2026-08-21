@@ -39,8 +39,9 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Verify prototype contains no network permission
-        run: '! grep -R "android.permission.INTERNET" android/app/src/main/AndroidManifest.xml'
-      - name: Build debug APK
+      - name: Verify prototype permissions are safe
+        run: |
+          ! grep -R -E 'android\.permission\.(INTERNET|ACCESSIBILITY_SERVICE|BIND_ACCESSIBILITY_SERVICE|WRITE_SETTINGS|MODIFY_AUDIO_SETTINGS|BLUETOOTH_CONNECT|BLUETOOTH_SCAN|BLUETOOTH_ADMIN|ACCESS_WIFI_STATE|CHANGE_WIFI_STATE|READ_CONTACTS|READ_SMS|RECEIVE_SMS|RECORD_AUDIO)' android/app/src/main/AndroidManifest.xml
+      - name: Build debug APK and unit tests
         working-directory: android
         run: gradle --no-daemon testDebugUnitTest assembleDebug
