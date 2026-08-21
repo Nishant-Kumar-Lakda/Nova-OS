@@ -70,12 +70,6 @@ public final class AndroidPlatformAdapter implements NovaPlatformAdapter {
                 }
                 activity.startActivity(calculator);
                 return "Calculator opened.";
-            case "browser":
-                Intent browser = new Intent(Intent.ACTION_VIEW);
-                browser.setData(android.net.Uri.parse("https://example.invalid"));
-                browser.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                activity.startActivity(browser);
-                return "Browser launch requested.";
             default:
                 throw new IllegalArgumentException("App alias is not allowlisted: " + alias);
         }
