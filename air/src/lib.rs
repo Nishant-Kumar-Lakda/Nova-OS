@@ -1,8 +1,10 @@
 pub mod backend;
+pub mod model_manifest;
 pub mod resource_policy;
 pub mod scheduler;
 pub mod security;
 
+pub use model_manifest::{ManifestError, ModelManifest};
 pub use resource_policy::{PowerMode, ResourcePolicy, ResourceSnapshot};
 
 use serde::{Deserialize, Serialize};
@@ -100,39 +102,6 @@ impl ModelManager {
 
     pub fn is_loaded(&self, model_id: &str) -> bool {
         self.loaded.contains_key(model_id)
-    }
-
-    /// Changes the resident-model budget and evicts least-recently-used models
-    /// until the current residency fits within the new limit.
-    pub fn set_memory_budget(&mut self, memory_budget: u64) -> Result<(), AirError> {
-        if memory_budget == 0 {
-            return Err(AirError::InvalidBudget);
-        }
-
-        self.memory_budget = memory_budget;
-        while self.used_memory > self.memory_budget {
-            let victim = self
-                .loaded
-                .iter()
-                .min_by_key(|(_, loaded)| loaded.last_used)
-                .map(|(id, _)| id.clone());
-
-            match victim {
-                Some(id) => self.unload_internal(&id),
-                None => break,
-            }
-        }
-        Ok(())
-    }
-
-    pub fn apply_resource_policy(
-        &mut self,
-        policy: ResourcePolicy,
-        snapshot: ResourceSnapshot,
-    ) -> Result<u64, AirError> {
-        let budget = policy.recommended_model_budget(snapshot);
-        self.set_memory_budget(budget)?;
-        Ok(budget)
     }
 
     pub fn load(&mut self, model_id: &str) -> Result<(), AirError> {
@@ -275,38 +244,6 @@ mod tests {
         manager.unload("intent").unwrap();
         assert!(!manager.is_loaded("intent"));
         assert_eq!(manager.used_memory(), 0);
-    }
-
-    #[test]
-    fn budget_reduction_evicts_lru_models() {
-        let mut manager = ModelManager::new(100).unwrap();
-        manager.register(model("a", 40)).unwrap();
-        manager.register(model("b", 40)).unwrap();
-        manager.load("a").unwrap();
-        manager.load("b").unwrap();
-        manager.set_memory_budget(50).unwrap();
-
-        assert_eq!(manager.memory_budget(), 50);
-        assert_eq!(manager.used_memory(), 40);
-        assert!(!manager.is_loaded("a"));
-        assert!(manager.is_loaded("b"));
-    }
-
-    #[test]
-    fn apply_resource_policy_adjusts_budget() {
-        let mut manager = ModelManager::new(500_000_000).unwrap();
-        let snapshot = ResourceSnapshot {
-            available_memory_bytes: 1_000_000_000,
-            battery_percent: 15,
-            low_memory: false,
-            low_power: true,
-        };
-        let budget = manager
-            .apply_resource_policy(ResourcePolicy::default(), snapshot)
-            .unwrap();
-
-        assert_eq!(budget, 150_000_000);
-        assert_eq!(manager.memory_budget(), 150_000_000);
     }
 
     #[test]
