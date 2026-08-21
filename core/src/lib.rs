@@ -7,7 +7,12 @@ use nova_memory::{InMemoryStore, MemoryError, MemoryQuery, MemoryRecord, MemoryS
 use nova_nexus::{parse, Intent, IntentError};
 use nova_planner::{ActionGraph, ActionNode, PlannerError};
 use nova_runtime::{execute_text, RuntimeError, Skill, SkillRegistry, SkillResult};
+use std::collections::HashMap;
 use thiserror::Error;
+
+pub mod task;
+
+pub use task::{TaskError, TaskManager, TaskSession, TaskState};
 
 #[derive(Debug, Error)]
 pub enum NovaError {
@@ -23,13 +28,15 @@ pub enum NovaError {
     Inference(#[from] InferenceError),
     #[error(transparent)]
     Runtime(#[from] RuntimeError),
+    #[error(transparent)]
+    Task(#[from] TaskError),
     #[error("AIR initialization failed: {0}")]
     AirInitialization(String),
 }
 
 /// Top-level NOVA orchestration layer. It connects intent understanding,
-/// planning, memory, context, skills, and AIR without tying them to a phone
-/// or desktop platform.
+/// planning, memory, context, skills, task lifecycle, and AIR without tying
+/// them to a phone or desktop platform.
 pub struct NovaEngine<B>
 where
     B: InferenceBackend,
@@ -38,6 +45,7 @@ where
     memory: InMemoryStore,
     inference: InferenceEngine<B>,
     skills: SkillRegistry,
+    tasks: TaskManager,
 }
 
 impl<B> NovaEngine<B>
@@ -53,12 +61,61 @@ where
             memory: InMemoryStore::new(),
             inference,
             skills: SkillRegistry::new(),
+            tasks: TaskManager::new(),
         })
     }
 
     pub fn understand(&mut self, input: &str) -> Result<Intent, NovaError> {
         self.context.set_user_input(input);
         Ok(parse(input)?)
+    }
+
+    pub fn create_task(&mut self, input: impl Into<String>) -> Result<String, NovaError> {
+        Ok(self.tasks.create(input)?)
+    }
+
+    pub fn task(&self, task_id: &str) -> Result<&TaskSession, NovaError> {
+        Ok(self.tasks.get(task_id)?)
+    }
+
+    pub fn task_snapshot(&self) -> Vec<TaskSession> {
+        self.tasks.snapshot()
+    }
+
+    pub fn understand_task(&mut self, task_id: &str) -> Result<Intent, NovaError> {
+        let input = self.tasks.get(task_id)?.input.clone();
+        let intent = self.understand(&input)?;
+        self.tasks.get_mut(task_id)?.attach_intent(intent.clone())?;
+        Ok(intent)
+    }
+
+    pub fn attach_task_plan(
+        &mut self,
+        task_id: &str,
+        plan: ActionGraph,
+    ) -> Result<(), NovaError> {
+        self.tasks.get_mut(task_id)?.attach_plan(plan)?;
+        Ok(())
+    }
+
+    pub fn start_task(&mut self, task_id: &str) -> Result<(), NovaError> {
+        self.tasks.get_mut(task_id)?.start()?;
+        Ok(())
+    }
+
+    pub fn complete_task(&mut self, task_id: &str) -> Result<(), NovaError> {
+        self.tasks.get_mut(task_id)?.complete()?;
+        Ok(())
+    }
+
+    pub fn fail_task(&mut self, task_id: &str, message: impl Into<String>) -> Result<(), NovaError> {
+        self.tasks.get_mut(task_id)?.fail(message)?;
+        Ok(())
+    }
+
+    pub fn cancel_task(&mut self, task_id: &str) -> Result<(), NovaError> {
+        self.tasks.get_mut(task_id)?.cancel()?;
+        Ok(())
     }
 
     pub fn register_skill(&mut self, skill: Box<dyn Skill>) -> Result<(), NovaError> {
@@ -117,5 +174,30 @@ where
 
     pub fn available_ai_memory(&self) -> u64 {
         self.inference.available_memory()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nova_air::backend::EchoBackend;
+
+    #[test]
+    fn creates_and_understands_task() {
+        let mut nova = NovaEngine::new(1024, EchoBackend, 8).unwrap();
+        let task_id = nova.create_task("check battery").unwrap();
+        let intent = nova.understand_task(&task_id).unwrap();
+
+        assert_eq!(intent.action, "battery.status");
+        assert_eq!(nova.task(&task_id).unwrap().state, TaskState::Planning);
+    }
+
+    #[test]
+    fn task_snapshot_is_available_from_engine() {
+        let mut nova = NovaEngine::new(1024, EchoBackend, 8).unwrap();
+        nova.create_task("check battery").unwrap();
+        nova.create_task("turn on flashlight").unwrap();
+
+        assert_eq!(nova.task_snapshot().len(), 2);
     }
 }
