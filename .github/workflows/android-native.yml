@@ -26,14 +26,14 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK, NDK and CMake
+      - name: Set up Android SDK, NDK and CMake
         run: |
           sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
-          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.0.12077973" >> "$GITHUB_ENV"
+          export ANDROID_NDK_ROOT="$ANDROID_SDK_ROOT/ndk/27.0.12077973"
+          echo "ANDROID_NDK_ROOT=$ANDROID_NDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$ANDROID_NDK_ROOT" >> "$GITHUB_ENV"
           echo "ANDROID_CMAKE_VERSION=3.22.1" >> "$GITHUB_ENV"
+          test -f "$ANDROID_NDK_ROOT/source.properties"
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
