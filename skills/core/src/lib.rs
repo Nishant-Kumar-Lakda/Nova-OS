@@ -1,5 +1,4 @@
 use nova_nexus::Intent;
-use nova_platform::Platform;
 use nova_runtime::{RuntimeError, Skill, SkillContext, SkillMetadata, SkillResult};
 
 fn platform_required() -> RuntimeError {
@@ -131,6 +130,8 @@ impl Skill for BluetoothSkill {
         context: &SkillContext<'_>,
     ) -> Result<SkillResult, RuntimeError> {
         let enabled = match intent.action.as_str() {
+            "bluetooth.on" => true,
+            "bluetooth.off" => false,
             "bluetooth.enable" => true,
             "bluetooth.disable" => false,
             _ => return Err(RuntimeError::InvalidAction(intent.action.clone())),
