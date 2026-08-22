@@ -126,11 +126,7 @@ impl ActionGraph {
             .collect()
     }
 
-    pub fn transition(
-        &mut self,
-        node_id: &str,
-        next_state: NodeState,
-    ) -> Result<(), PlannerError> {
+    pub fn transition(&mut self, node_id: &str, next_state: NodeState) -> Result<(), PlannerError> {
         let node = self
             .nodes
             .iter_mut()
