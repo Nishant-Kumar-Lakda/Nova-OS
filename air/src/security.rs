@@ -112,6 +112,9 @@ mod tests {
         let mut policy = policy();
         policy.action.clear();
 
-        assert_eq!(authorize(&policy, &context()), Err(SecurityError::EmptyAction));
+        assert_eq!(
+            authorize(&policy, &context()),
+            Err(SecurityError::EmptyAction)
+        );
     }
 }
