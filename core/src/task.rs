@@ -190,11 +190,17 @@ fn valid_transition(from: TaskState, to: TaskState) -> bool {
     match from {
         TaskState::Created => matches!(to, TaskState::Planning | TaskState::Cancelled),
         TaskState::Planning => {
-            matches!(to, TaskState::Ready | TaskState::Failed | TaskState::Cancelled)
+            matches!(
+                to,
+                TaskState::Ready | TaskState::Failed | TaskState::Cancelled
+            )
         }
         TaskState::Ready => matches!(to, TaskState::Running | TaskState::Cancelled),
         TaskState::Running => {
-            matches!(to, TaskState::Completed | TaskState::Failed | TaskState::Cancelled)
+            matches!(
+                to,
+                TaskState::Completed | TaskState::Failed | TaskState::Cancelled
+            )
         }
         TaskState::Completed | TaskState::Failed | TaskState::Cancelled => false,
     }
