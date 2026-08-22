@@ -50,13 +50,11 @@ impl ResourcePolicy {
             PowerMode::CriticalBattery => 5,
         };
 
-        let memory_based = snapshot
-            .available_memory_bytes
-            .saturating_mul(ratio as u64)
-            / 100;
+        let memory_based = snapshot.available_memory_bytes.saturating_mul(ratio as u64) / 100;
 
         let low_memory_cap = if snapshot.low_memory {
-            snapshot.available_memory_bytes
+            snapshot
+                .available_memory_bytes
                 .saturating_mul(self.low_memory_ratio_percent as u64)
                 / 100
         } else {
@@ -113,6 +111,9 @@ mod tests {
         let policy = ResourcePolicy::default();
         let result = policy.recommended_model_budget(snapshot(1_000_000_000, 5, false, false));
         assert_eq!(result, 50_000_000);
-        assert_eq!(policy.power_mode(snapshot(1_000_000_000, 5, false, false)), PowerMode::CriticalBattery);
+        assert_eq!(
+            policy.power_mode(snapshot(1_000_000_000, 5, false, false)),
+            PowerMode::CriticalBattery
+        );
     }
 }
