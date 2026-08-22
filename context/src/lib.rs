@@ -87,7 +87,9 @@ impl ContextEngine {
     }
 
     pub fn resolve_last(&self, kind: EntityKind) -> Option<&ContextEntity> {
-        self.recent_entities.iter().find(|entity| entity.kind == kind)
+        self.recent_entities
+            .iter()
+            .find(|entity| entity.kind == kind)
     }
 
     pub fn snapshot(&self) -> ContextSnapshot {
@@ -116,17 +118,26 @@ mod tests {
     #[test]
     fn remembers_and_resolves_latest_person() {
         let mut context = ContextEngine::new(4);
-        context.remember(person("Rahul", "contact:rahul", 1)).unwrap();
-        context.remember(person("Priya", "contact:priya", 2)).unwrap();
+        context
+            .remember(person("Rahul", "contact:rahul", 1))
+            .unwrap();
+        context
+            .remember(person("Priya", "contact:priya", 2))
+            .unwrap();
 
-        assert_eq!(context.resolve_last(EntityKind::Person).unwrap().name, "Priya");
+        assert_eq!(
+            context.resolve_last(EntityKind::Person).unwrap().name,
+            "Priya"
+        );
     }
 
     #[test]
     fn replaces_duplicate_entity() {
         let mut context = ContextEngine::new(4);
         context.remember(person("Rahul", "contact:old", 1)).unwrap();
-        context.remember(person("rahul", "contact:new", 2)).unwrap();
+        context
+            .remember(person("rahul", "contact:new", 2))
+            .unwrap();
 
         let entity = context.resolve_last(EntityKind::Person).unwrap();
         assert_eq!(entity.reference, "contact:new");
