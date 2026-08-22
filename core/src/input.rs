@@ -25,7 +25,11 @@ pub enum InputError {
 }
 
 impl UserInput {
-    pub fn new(source: InputSource, text: impl Into<String>, timestamp_ms: u64) -> Result<Self, InputError> {
+    pub fn new(
+        source: InputSource,
+        text: impl Into<String>,
+        timestamp_ms: u64,
+    ) -> Result<Self, InputError> {
         let text = text.into();
         if text.trim().is_empty() {
             return Err(InputError::EmptyText);
