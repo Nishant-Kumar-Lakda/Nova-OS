@@ -47,16 +47,35 @@ public final class NativeModelBridge {
             throw new IOException("Unable to create private model directory");
         }
 
-        try (InputStream input = context.getAssets().open(MODEL_ASSET);
-             FileOutputStream output = new FileOutputStream(model)) {
-            byte[] buffer = new byte[64 * 1024];
-            int read;
-            while ((read = input.read(buffer)) != -1) {
-                output.write(buffer, 0, read);
+        File temporary = new File(parent, MODEL_FILE + ".part");
+        try {
+            try (InputStream input = context.getAssets().open(MODEL_ASSET);
+                 FileOutputStream output = new FileOutputStream(temporary)) {
+                byte[] buffer = new byte[64 * 1024];
+                int read;
+                while ((read = input.read(buffer)) != -1) {
+                    output.write(buffer, 0, read);
+                }
+                output.getFD().sync();
+            }
+
+            if (!temporary.isFile() || temporary.length() <= 0) {
+                throw new IOException("Bundled model asset is empty");
+            }
+
+            if (!temporary.renameTo(model)) {
+                if (model.exists() && model.delete() && temporary.renameTo(model)) {
+                    return model;
+                }
+                throw new IOException("Unable to finalize bundled model file");
+            }
+            return model;
+        } finally {
+            if (temporary.exists()) {
+                //noinspection ResultOfMethodCallIgnored
+                temporary.delete();
             }
         }
-
-        return model;
     }
 
     public static Result generate(Context context, String prompt, int maxTokens) {
