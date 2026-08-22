@@ -190,7 +190,8 @@ mod tests {
     fn battery_skill_reads_mock_platform() {
         let registry = registry();
         let platform = MockPlatform::new(81).unwrap();
-        let result = execute_with_platform(&registry, &intent("battery.status"), &platform).unwrap();
+        let result =
+            execute_with_platform(&registry, &intent("battery.status"), &platform).unwrap();
         assert_eq!(result.data["battery_percent"], 81);
     }
 
