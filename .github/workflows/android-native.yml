@@ -29,10 +29,11 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android SDK and NDK
+      - name: Install Android SDK, NDK and CMake
         run: |
-          sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;27.0.12077973"
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
           echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.0.12077973" >> "$GITHUB_ENV"
+          echo "ANDROID_CMAKE_VERSION=3.22.1" >> "$GITHUB_ENV"
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -47,14 +48,17 @@ jobs:
           git clone https://github.com/ggml-org/llama.cpp.git android/app/src/main/cpp/llama.cpp
           cd android/app/src/main/cpp/llama.cpp
           git checkout 9a286ac98d2cab74231bd3f1fc3f2b8bdf05422e
+          test -f CMakeLists.txt
+          test -f include/llama.h
 
       - name: Fetch SmolLM2 135M Q2_K model
         run: |
           mkdir -p android/app/src/main/assets/models
-          curl -L --fail --retry 3 \
+          curl -L --fail --retry 3 --retry-delay 2 \
             "https://huggingface.co/tensorblock/SmolLM2-135M-Instruct-GGUF/resolve/main/SmolLM2-135M-Instruct-Q2_K.gguf?download=true" \
             -o android/app/src/main/assets/models/SmolLM2-135M-Instruct-Q2_K.gguf
           test -s android/app/src/main/assets/models/SmolLM2-135M-Instruct-Q2_K.gguf
+          test "$(stat -c%s android/app/src/main/assets/models/SmolLM2-135M-Instruct-Q2_K.gguf)" -gt 80000000
           sha256sum android/app/src/main/assets/models/SmolLM2-135M-Instruct-Q2_K.gguf | tee android/app/src/main/assets/models/SmolLM2-135M-Instruct-Q2_K.gguf.sha256
 
       - name: Build Rust Android bridge
@@ -73,10 +77,10 @@ jobs:
 
       - name: Verify native bridge presence
         run: |
-          test -f android/app/src/main/jniLibs/arm64-v8a/libnova_android_bridge.so
-          test -f android/app/src/main/jniLibs/armeabi-v7a/libnova_android_bridge.so
-          test -f android/app/src/main/jniLibs/x86_64/libnova_android_bridge.so
-          test -f android/app/src/main/jniLibs/x86/libnova_android_bridge.so
+          test -s android/app/src/main/jniLibs/arm64-v8a/libnova_android_bridge.so
+          test -s android/app/src/main/jniLibs/armeabi-v7a/libnova_android_bridge.so
+          test -s android/app/src/main/jniLibs/x86_64/libnova_android_bridge.so
+          test -s android/app/src/main/jniLibs/x86/libnova_android_bridge.so
 
       - name: Install Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -87,8 +91,10 @@ jobs:
         working-directory: android
         run: gradle --no-daemon testDebugUnitTest assembleDebug
 
-      - name: Verify APK has model asset
+      - name: Verify APK has native AI and model asset
         run: |
+          unzip -l android/app/build/outputs/apk/debug/app-debug.apk | grep 'lib/arm64-v8a/libnova_llama.so'
+          unzip -l android/app/build/outputs/apk/debug/app-debug.apk | grep 'lib/arm64-v8a/libnova_android_bridge.so'
           unzip -l android/app/build/outputs/apk/debug/app-debug.apk | grep 'SmolLM2-135M-Instruct-Q2_K.gguf'
 
       - name: Verify APK does not request cloud or privileged permissions
