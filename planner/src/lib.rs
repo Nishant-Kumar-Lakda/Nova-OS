@@ -215,15 +215,18 @@ impl ActionGraph {
 
 fn valid_transition(from: &NodeState, to: &NodeState) -> bool {
     match from {
-        NodeState::Pending => {
-            matches!(to, NodeState::Ready | NodeState::Cancelled | NodeState::Skipped)
-        }
-        NodeState::Ready => {
-            matches!(to, NodeState::Running | NodeState::Cancelled | NodeState::Skipped)
-        }
-        NodeState::Running => {
-            matches!(to, NodeState::Succeeded | NodeState::Failed | NodeState::Cancelled)
-        }
+        NodeState::Pending => matches!(
+            to,
+            NodeState::Ready | NodeState::Cancelled | NodeState::Skipped
+        ),
+        NodeState::Ready => matches!(
+            to,
+            NodeState::Running | NodeState::Cancelled | NodeState::Skipped
+        ),
+        NodeState::Running => matches!(
+            to,
+            NodeState::Succeeded | NodeState::Failed | NodeState::Cancelled
+        ),
         NodeState::Succeeded | NodeState::Failed | NodeState::Cancelled | NodeState::Skipped => {
             false
         }
@@ -246,7 +249,10 @@ mod tests {
 
     #[test]
     fn rejects_empty_graph_id() {
-        assert!(matches!(ActionGraph::new(""), Err(PlannerError::EmptyGraphId)));
+        assert!(matches!(
+            ActionGraph::new(""),
+            Err(PlannerError::EmptyGraphId)
+        ));
     }
 
     #[test]
@@ -276,10 +282,7 @@ mod tests {
     fn detects_dependency_cycle() {
         let graph = ActionGraph {
             id: "cycle".into(),
-            nodes: vec![
-                node("a", "one", vec!["b"]),
-                node("b", "two", vec!["a"]),
-            ],
+            nodes: vec![node("a", "one", vec!["b"]), node("b", "two", vec!["a"])],
         };
 
         assert_eq!(graph.validate(), Err(PlannerError::DependencyCycle));
