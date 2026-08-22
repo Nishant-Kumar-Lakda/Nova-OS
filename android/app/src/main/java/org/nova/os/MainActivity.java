@@ -13,6 +13,8 @@ import android.widget.TextView;
 import java.io.File;
 import java.io.IOException;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /** Android-first NOVA prototype shell. */
 public class MainActivity extends Activity {
@@ -20,14 +22,24 @@ public class MainActivity extends Activity {
     private TextView status;
     private NovaAndroidEngine engine;
     private LocalModelCatalog modelCatalog;
+    private ExecutorService background;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        background = Executors.newSingleThreadExecutor();
         modelCatalog = new LocalModelCatalog(this);
         engine = new NovaAndroidEngine(new AndroidPlatformAdapter(this));
         buildUi();
         refreshStatus();
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (background != null) {
+            background.shutdownNow();
+        }
+        super.onDestroy();
     }
 
     private void buildUi() {
@@ -68,11 +80,11 @@ public class MainActivity extends Activity {
 
         Button diagnostics = new Button(this);
         diagnostics.setText("Run Core Diagnostics");
-        diagnostics.setOnClickListener(v -> output.setText(coreDiagnostics()));
+        diagnostics.setOnClickListener(v -> runDiagnosticsAsync());
 
         Button models = new Button(this);
         models.setText("Initialize Local AI Model");
-        models.setOnClickListener(v -> initializeLocalModel());
+        models.setOnClickListener(v -> initializeLocalModelAsync());
 
         output = new TextView(this);
         output.setTextSize(16);
@@ -107,13 +119,31 @@ public class MainActivity extends Activity {
         setContentView(scroll);
     }
 
-    private void initializeLocalModel() {
-        try {
-            File model = NativeModelBridge.ensureBundledModel(this);
-            output.setText("Local AI model ready.\n\n" + model.getName() + "\n" + model.length() + " bytes\n\nNo network connection is used at runtime.");
-        } catch (IOException error) {
-            output.setText("Unable to initialize local model: " + error.getMessage());
-        }
+    private void initializeLocalModelAsync() {
+        output.setText("Preparing local AI model…");
+        background.execute(() -> {
+            try {
+                File model = NativeModelBridge.ensureBundledModel(this);
+                runOnUiThread(() -> output.setText(
+                        "Local AI model ready.\n\n"
+                                + model.getName() + "\n"
+                                + model.length() + " bytes\n\n"
+                                + "No network connection is used at runtime."
+                ));
+            } catch (IOException error) {
+                runOnUiThread(() -> output.setText(
+                        "Unable to initialize local model: " + error.getMessage()
+                ));
+            }
+        });
+    }
+
+    private void runDiagnosticsAsync() {
+        output.setText("Running NOVA Core diagnostics…");
+        background.execute(() -> {
+            String result = coreDiagnostics();
+            runOnUiThread(() -> output.setText(result));
+        });
     }
 
     private void refreshStatus() {
@@ -159,11 +189,17 @@ public class MainActivity extends Activity {
 
     private void handle(String input) {
         refreshStatus();
+        output.setText("Processing…");
+        background.execute(() -> {
+            NovaAndroidEngine.ExecutionResult result = engine.execute(input);
+            String rendered = renderResult(input, result);
+            runOnUiThread(() -> output.setText(rendered));
+        });
+    }
 
-        NovaAndroidEngine.ExecutionResult result = engine.execute(input);
+    private String renderResult(String input, NovaAndroidEngine.ExecutionResult result) {
         if (result.task == null) {
-            output.setText(result.message);
-            return;
+            return result.message;
         }
 
         NovaTaskSession task = result.task;
@@ -197,7 +233,7 @@ public class MainActivity extends Activity {
             }
         }
 
-        output.setText(text.toString());
+        return text.toString();
     }
 
     private LinearLayout.LayoutParams matchWrap() {
