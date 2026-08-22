@@ -121,10 +121,7 @@ mod tests {
 
     #[test]
     fn rejects_empty_generic_app() {
-        assert_eq!(
-            parse("open "),
-            Err(IntentError::UnsupportedCommand)
-        );
+        assert_eq!(parse("open "), Err(IntentError::UnsupportedCommand));
     }
 
     #[test]
