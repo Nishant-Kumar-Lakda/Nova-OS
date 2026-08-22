@@ -58,7 +58,9 @@ impl MockPlatform {
         self.state
             .lock()
             .map(|state| state.clone())
-            .map_err(|_| PlatformError::CapabilityUnavailable("platform state lock poisoned".into()))
+            .map_err(|_| {
+                PlatformError::CapabilityUnavailable("platform state lock poisoned".into())
+            })
     }
 }
 
@@ -69,7 +71,9 @@ impl Platform for MockPlatform {
         }
         self.state
             .lock()
-            .map_err(|_| PlatformError::CapabilityUnavailable("platform state lock poisoned".into()))?
+            .map_err(|_| {
+                PlatformError::CapabilityUnavailable("platform state lock poisoned".into())
+            })?
             .last_app = Some(app.trim().to_string());
         Ok(())
     }
@@ -81,7 +85,9 @@ impl Platform for MockPlatform {
     fn flashlight(&self, enabled: bool) -> Result<(), PlatformError> {
         self.state
             .lock()
-            .map_err(|_| PlatformError::CapabilityUnavailable("platform state lock poisoned".into()))?
+            .map_err(|_| {
+                PlatformError::CapabilityUnavailable("platform state lock poisoned".into())
+            })?
             .flashlight_enabled = enabled;
         Ok(())
     }
@@ -89,7 +95,9 @@ impl Platform for MockPlatform {
     fn wifi(&self, enabled: bool) -> Result<(), PlatformError> {
         self.state
             .lock()
-            .map_err(|_| PlatformError::CapabilityUnavailable("platform state lock poisoned".into()))?
+            .map_err(|_| {
+                PlatformError::CapabilityUnavailable("platform state lock poisoned".into())
+            })?
             .wifi_enabled = enabled;
         Ok(())
     }
@@ -97,7 +105,9 @@ impl Platform for MockPlatform {
     fn bluetooth(&self, enabled: bool) -> Result<(), PlatformError> {
         self.state
             .lock()
-            .map_err(|_| PlatformError::CapabilityUnavailable("platform state lock poisoned".into()))?
+            .map_err(|_| {
+                PlatformError::CapabilityUnavailable("platform state lock poisoned".into())
+            })?
             .bluetooth_enabled = enabled;
         Ok(())
     }
