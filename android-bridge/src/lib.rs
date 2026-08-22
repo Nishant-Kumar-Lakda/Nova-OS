@@ -141,9 +141,7 @@ mod tests {
         };
 
         let policy = ResourcePolicy::default();
-        assert!(
-            policy.recommended_model_budget(low_power) < policy.recommended_model_budget(normal)
-        );
+        assert!(policy.recommended_model_budget(low_power) < policy.recommended_model_budget(normal));
     }
 
     #[test]
