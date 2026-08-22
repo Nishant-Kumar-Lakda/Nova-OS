@@ -104,6 +104,34 @@ impl ModelManager {
         self.loaded.contains_key(model_id)
     }
 
+    /// Recalculate the resident-model budget from current device resources.
+    ///
+    /// If the new budget is smaller than current residency, least-recently-used
+    /// models are evicted until the resident set fits within the new cap.
+    pub fn apply_resource_policy(
+        &mut self,
+        policy: ResourcePolicy,
+        snapshot: ResourceSnapshot,
+    ) -> Result<u64, AirError> {
+        let budget = policy.recommended_model_budget(snapshot);
+        self.memory_budget = budget;
+
+        while self.used_memory > self.memory_budget {
+            let victim = self
+                .loaded
+                .iter()
+                .min_by_key(|(_, loaded)| loaded.last_used)
+                .map(|(id, _)| id.clone());
+
+            match victim {
+                Some(id) => self.unload_internal(&id),
+                None => break,
+            }
+        }
+
+        Ok(self.memory_budget)
+    }
+
     pub fn load(&mut self, model_id: &str) -> Result<(), AirError> {
         let spec = self
             .registry
@@ -288,6 +316,37 @@ mod tests {
         assert!(manager.is_loaded("c"));
         assert!(!manager.is_loaded("b"));
         assert_eq!(manager.used_memory(), 80);
+    }
+
+    #[test]
+    fn resource_policy_shrinks_resident_set() {
+        let mut manager = ModelManager::new(100).unwrap();
+        manager.register(model("a", 40)).unwrap();
+        manager.register(model("b", 40)).unwrap();
+        manager.load("a").unwrap();
+        manager.load("b").unwrap();
+
+        let budget = manager
+            .apply_resource_policy(
+                ResourcePolicy {
+                    hard_memory_cap_bytes: 60,
+                    normal_memory_ratio_percent: 60,
+                    low_memory_ratio_percent: 60,
+                    battery_saver_ratio_percent: 60,
+                },
+                ResourceSnapshot {
+                    available_memory_bytes: 100,
+                    battery_percent: 80,
+                    low_memory: false,
+                    low_power: false,
+                },
+            )
+            .unwrap();
+
+        assert_eq!(budget, 60);
+        assert_eq!(manager.used_memory(), 40);
+        assert!(manager.is_loaded("b"));
+        assert!(!manager.is_loaded("a"));
     }
 
     #[test]
