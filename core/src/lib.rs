@@ -108,11 +108,7 @@ where
         Ok(intent)
     }
 
-    pub fn attach_task_plan(
-        &mut self,
-        task_id: &str,
-        plan: ActionGraph,
-    ) -> Result<(), NovaError> {
+    pub fn attach_task_plan(&mut self, task_id: &str, plan: ActionGraph) -> Result<(), NovaError> {
         self.tasks.get_mut(task_id)?.attach_plan(plan)?;
         Ok(())
     }
@@ -135,9 +131,7 @@ where
         task_id: &str,
         message: impl Into<String>,
     ) -> Result<(), NovaError> {
-        self.tasks
-            .get_mut(task_id)?
-            .fail_current_node(message)?;
+        self.tasks.get_mut(task_id)?.fail_current_node(message)?;
         Ok(())
     }
 
@@ -146,7 +140,11 @@ where
         Ok(())
     }
 
-    pub fn fail_task(&mut self, task_id: &str, message: impl Into<String>) -> Result<(), NovaError> {
+    pub fn fail_task(
+        &mut self,
+        task_id: &str,
+        message: impl Into<String>,
+    ) -> Result<(), NovaError> {
         self.tasks.get_mut(task_id)?.fail(message)?;
         Ok(())
     }
