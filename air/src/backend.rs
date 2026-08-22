@@ -215,10 +215,7 @@ mod tests {
         let mut request = request();
         request.max_tokens = 0;
 
-        assert_eq!(
-            backend.infer(&request),
-            Err(BackendError::InvalidMaxTokens)
-        );
+        assert_eq!(backend.infer(&request), Err(BackendError::InvalidMaxTokens));
     }
 
     #[test]
