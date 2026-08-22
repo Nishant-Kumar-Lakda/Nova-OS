@@ -4,7 +4,7 @@ project(nova_android_llama LANGUAGES C CXX)
 set(LLAMA_CPP_DIR "${CMAKE_CURRENT_LIST_DIR}/llama.cpp" CACHE PATH "Pinned llama.cpp source tree")
 
 if(NOT EXISTS "${LLAMA_CPP_DIR}/CMakeLists.txt")
-    message(FATAL_ERROR "llama.cpp source tree is missing. Run scripts/prepare_android_model.sh first.")
+    message(FATAL_ERROR "llama.cpp source tree is missing. Run scripts/prepare_android_model.ps1 on Windows or use the NOVA Android Native GitHub workflow.")
 endif()
 
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
