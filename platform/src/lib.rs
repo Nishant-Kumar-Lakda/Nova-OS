@@ -66,9 +66,12 @@ impl Platform for MockPlatform {
         if app.trim().is_empty() {
             return Err(PlatformError::InvalidValue("app cannot be empty".into()));
         }
-        self.state.lock().map_err(|_| {
-            PlatformError::CapabilityUnavailable("platform state lock poisoned".into())
-        })?.last_app = Some(app.trim().to_string());
+        self.state
+            .lock()
+            .map_err(|_| {
+                PlatformError::CapabilityUnavailable("platform state lock poisoned".into())
+            })?
+            .last_app = Some(app.trim().to_string());
         Ok(())
     }
 
@@ -77,23 +80,32 @@ impl Platform for MockPlatform {
     }
 
     fn flashlight(&self, enabled: bool) -> Result<(), PlatformError> {
-        self.state.lock().map_err(|_| {
-            PlatformError::CapabilityUnavailable("platform state lock poisoned".into())
-        })?.flashlight_enabled = enabled;
+        self.state
+            .lock()
+            .map_err(|_| {
+                PlatformError::CapabilityUnavailable("platform state lock poisoned".into())
+            })?
+            .flashlight_enabled = enabled;
         Ok(())
     }
 
     fn wifi(&self, enabled: bool) -> Result<(), PlatformError> {
-        self.state.lock().map_err(|_| {
-            PlatformError::CapabilityUnavailable("platform state lock poisoned".into())
-        })?.wifi_enabled = enabled;
+        self.state
+            .lock()
+            .map_err(|_| {
+                PlatformError::CapabilityUnavailable("platform state lock poisoned".into())
+            })?
+            .wifi_enabled = enabled;
         Ok(())
     }
 
     fn bluetooth(&self, enabled: bool) -> Result<(), PlatformError> {
-        self.state.lock().map_err(|_| {
-            PlatformError::CapabilityUnavailable("platform state lock poisoned".into())
-        })?.bluetooth_enabled = enabled;
+        self.state
+            .lock()
+            .map_err(|_| {
+                PlatformError::CapabilityUnavailable("platform state lock poisoned".into())
+            })?
+            .bluetooth_enabled = enabled;
         Ok(())
     }
 }
