@@ -135,9 +135,7 @@ mod tests {
     fn replaces_duplicate_entity() {
         let mut context = ContextEngine::new(4);
         context.remember(person("Rahul", "contact:old", 1)).unwrap();
-        context
-            .remember(person("rahul", "contact:new", 2))
-            .unwrap();
+        context.remember(person("rahul", "contact:new", 2)).unwrap();
 
         let entity = context.resolve_last(EntityKind::Person).unwrap();
         assert_eq!(entity.reference, "contact:new");
