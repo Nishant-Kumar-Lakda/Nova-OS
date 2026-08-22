@@ -32,10 +32,7 @@ pub enum SecurityError {
     ConfirmationRequired,
 }
 
-pub fn authorize(
-    policy: &ActionPolicy,
-    context: &SecurityContext,
-) -> Result<(), SecurityError> {
+pub fn authorize(policy: &ActionPolicy, context: &SecurityContext) -> Result<(), SecurityError> {
     if policy.action.trim().is_empty() {
         return Err(SecurityError::EmptyAction);
     }
@@ -115,9 +112,6 @@ mod tests {
         let mut policy = policy();
         policy.action.clear();
 
-        assert_eq!(
-            authorize(&policy, &context()),
-            Err(SecurityError::EmptyAction)
-        );
+        assert_eq!(authorize(&policy, &context()), Err(SecurityError::EmptyAction));
     }
 }
