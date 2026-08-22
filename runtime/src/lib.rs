@@ -92,11 +92,13 @@ impl SkillRegistry {
         }
 
         for action in &metadata.actions {
-            if self
-                .skills
-                .iter()
-                .any(|existing| existing.metadata().actions.iter().any(|item| item == action))
-            {
+            if self.skills.iter().any(|existing| {
+                existing
+                    .metadata()
+                    .actions
+                    .iter()
+                    .any(|item| item == action)
+            }) {
                 return Err(RuntimeError::DuplicateActionClaim(action.clone()));
             }
         }
