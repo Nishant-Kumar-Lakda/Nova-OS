@@ -1,9 +1,10 @@
 #include "llama.h"
 #include <jni.h>
+#include <algorithm>
+#include <android/log.h>
+#include <mutex>
 #include <string>
 #include <vector>
-#include <mutex>
-#include <android/log.h>
 
 #define LOG_TAG "NovaLlama"
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
@@ -43,7 +44,7 @@ std::string generate(const std::string & model_path, const std::string & user_pr
 
     llama_model_params model_params = llama_model_default_params();
     model_params.n_gpu_layers = 0;
-    model_params.use_mmap = true;
+    model_params.load_mode = LLAMA_LOAD_MODE_MMAP;
 
     llama_model * model = llama_model_load_from_file(model_path.c_str(), model_params);
     if (model == nullptr) {
@@ -68,6 +69,13 @@ std::string generate(const std::string & model_path, const std::string & user_pr
         return "ERROR: tokenization failed";
     }
 
+    constexpr int kMaxContext = 1024;
+    const int requested_context = n_prompt + max_tokens + 8;
+    if (requested_context > kMaxContext) {
+        llama_model_free(model);
+        return "ERROR: prompt is too long for the mobile context window";
+    }
+
     std::vector<llama_token> prompt_tokens(static_cast<size_t>(n_prompt));
     if (llama_tokenize(vocab, prompt.c_str(), prompt.size(), prompt_tokens.data(), prompt_tokens.size(), true, true) < 0) {
         llama_model_free(model);
@@ -75,8 +83,8 @@ std::string generate(const std::string & model_path, const std::string & user_pr
     }
 
     llama_context_params ctx_params = llama_context_default_params();
-    ctx_params.n_ctx = static_cast<uint32_t>(std::min(1024, n_prompt + max_tokens + 8));
-    ctx_params.n_batch = static_cast<uint32_t>(std::min(n_prompt, 256));
+    ctx_params.n_ctx = static_cast<uint32_t>(requested_context);
+    ctx_params.n_batch = static_cast<uint32_t>(n_prompt);
     ctx_params.n_threads = threads > 0 ? threads : 2;
     ctx_params.n_threads_batch = threads > 0 ? threads : 2;
     ctx_params.no_perf = true;
