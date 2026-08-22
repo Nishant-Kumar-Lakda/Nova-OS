@@ -110,7 +110,12 @@ impl MemoryStore for InMemoryStore {
                 query
                     .tag
                     .as_ref()
-                    .map(|tag| record.tags.iter().any(|value| value.eq_ignore_ascii_case(tag)))
+                    .map(|tag| {
+                        record
+                            .tags
+                            .iter()
+                            .any(|value| value.eq_ignore_ascii_case(tag))
+                    })
                     .unwrap_or(true)
             })
             .filter(|record| {
@@ -157,7 +162,13 @@ fn validate_record(record: &MemoryRecord) -> Result<(), MemoryError> {
 mod tests {
     use super::*;
 
-    fn record(id: &str, kind: MemoryKind, subject: &str, content: &str, updated_at: u64) -> MemoryRecord {
+    fn record(
+        id: &str,
+        kind: MemoryKind,
+        subject: &str,
+        content: &str,
+        updated_at: u64,
+    ) -> MemoryRecord {
         MemoryRecord {
             id: id.into(),
             kind,
@@ -174,7 +185,13 @@ mod tests {
     fn stores_and_reads_memory() {
         let mut store = InMemoryStore::new();
         store
-            .put(record("m1", MemoryKind::Fact, "Rahul", "Rahul works in sales", 1))
+            .put(record(
+                "m1",
+                MemoryKind::Fact,
+                "Rahul",
+                "Rahul works in sales",
+                1,
+            ))
             .unwrap();
 
         assert_eq!(store.len(), 1);
