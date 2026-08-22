@@ -63,10 +63,10 @@ public final class AndroidPlatformAdapter implements NovaPlatformAdapter {
                 activity.startActivity(new Intent("android.media.action.IMAGE_CAPTURE"));
                 return "Camera launch requested.";
             case "calculator":
-                Intent calculator = activity.getPackageManager()
-                        .getLaunchIntentForPackage("com.google.android.calculator");
-                if (calculator == null) {
-                    throw new IllegalArgumentException("Calculator application is not available.");
+                Intent calculator = new Intent(Intent.ACTION_MAIN)
+                        .addCategory(Intent.CATEGORY_APP_CALCULATOR);
+                if (calculator.resolveActivity(activity.getPackageManager()) == null) {
+                    throw new IllegalArgumentException("No calculator application is available.");
                 }
                 activity.startActivity(calculator);
                 return "Calculator opened.";
