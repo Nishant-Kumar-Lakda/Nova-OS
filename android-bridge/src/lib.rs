@@ -1,28 +1,57 @@
 use jni::objects::{JClass, JString};
 use jni::sys::{jboolean, jint, jlong, jstring};
 use jni::JNIEnv;
-use nova_air::{AirSnapshot, ModelManager, ResourcePolicy};
-use nova_core::{NovaEngine, NovaError};
-use nova_nexus::{EchoBackend, Intent};
-use nova_runtime::RuntimeMode;
-use serde_json::json;
+use nova_air::backend::EchoBackend;
+use nova_air::{ResourcePolicy, ResourceSnapshot};
+use nova_core::NovaEngine;
+use nova_nexus::parse;
 
-fn to_jstring(env: &mut JNIEnv, value: String) -> jstring {
-    env.new_string(value)
-        .map(|value| value.into_raw())
-        .unwrap_or(std::ptr::null_mut())
+/// JNI entry point used by the Android shell.
+///
+/// The bridge converts Java text into a validated NIL JSON object. It cannot
+/// execute Android operations and performs no network access.
+#[no_mangle]
+pub extern "system" fn Java_org_nova_os_NativeNovaBridge_nativeUnderstand(
+    mut env: JNIEnv,
+    _class: JClass,
+    input: JString,
+) -> jstring {
+    let result = match env.get_string(&input) {
+        Ok(value) => match parse(value.to_str().unwrap_or_default()) {
+            Ok(intent) => serde_json::json!({
+                "ok": true,
+                "intent": intent,
+            })
+            .to_string(),
+            Err(error) => error_json(error.to_string().as_str()),
+        },
+        Err(error) => error_json(error.to_string().as_str()),
+    };
+
+    match env.new_string(result) {
+        Ok(value) => value.into_raw(),
+        Err(_) => std::ptr::null_mut(),
+    }
 }
 
+/// JNI entry point for Android resource-aware AIR budgeting.
+///
+/// Android supplies read-only resource measurements; AIR decides how much
+/// memory may be dedicated to resident local models.
 #[no_mangle]
-pub extern "system" fn Java_org_nova_os_NativeNovaBridge_nativeRecommendedModelBudget(
-    mut env: JNIEnv,
+pub extern "system" fn Java_org_nova_os_NativeNovaBridge_nativeRecommendModelBudget(
+    _env: JNIEnv,
     _class: JClass,
     available_memory_bytes: jlong,
     battery_percent: jint,
     low_memory: jboolean,
     low_power: jboolean,
 ) -> jlong {
-    let snapshot = AirSnapshot {
+    if available_memory_bytes < 0 || !(0..=100).contains(&battery_percent) {
+        return 0;
+    }
+
+    let snapshot = ResourceSnapshot {
         available_memory_bytes: available_memory_bytes as u64,
         battery_percent: battery_percent as u8,
         low_memory: low_memory != 0,
@@ -66,45 +95,16 @@ pub extern "system" fn Java_org_nova_os_NativeNovaBridge_nativeBootDiagnostics(
         .to_string(),
     };
 
-    to_jstring(&mut env, result)
+    match env.new_string(result) {
+        Ok(value) => value.into_raw(),
+        Err(_) => std::ptr::null_mut(),
+    }
 }
 
-#[no_mangle]
-pub extern "system" fn Java_org_nova_os_NativeNovaBridge_nativeRunIntent(
-    mut env: JNIEnv,
-    _class: JClass,
-    input: JString,
-) -> jstring {
-    let input = match env.get_string(&input) {
-        Ok(value) => value.to_string_lossy().into_owned(),
-        Err(error) => {
-            return to_jstring(&mut env, json!({"ok": false, "error": error.to_string()}).to_string())
-        }
-    };
-
-    let intent = Intent::new(input);
-    let mut nova = match NovaEngine::new(128 * 1024 * 1024, EchoBackend, 16) {
-        Ok(nova) => nova,
-        Err(error) => return to_jstring(&mut env, nova_error_json(error)),
-    };
-
-    let result = match nova.execute_intent(intent) {
-        Ok(result) => json!({
-            "ok": true,
-            "result": result,
-            "mode": RuntimeMode::Deterministic,
-        })
-        .to_string(),
-        Err(error) => nova_error_json(error),
-    };
-
-    to_jstring(&mut env, result)
-}
-
-fn nova_error_json(error: NovaError) -> String {
-    json!({
+fn error_json(message: &str) -> String {
+    serde_json::json!({
         "ok": false,
-        "error": error.to_string(),
+        "error": message,
     })
     .to_string()
 }
@@ -114,20 +114,41 @@ mod tests {
     use super::*;
 
     #[test]
-    fn recommended_budget_decreases_in_low_power_mode() {
-        let normal = AirSnapshot {
-            available_memory_bytes: 4 * 1024 * 1024 * 1024,
+    fn returns_nil_for_supported_command() {
+        let intent = parse("check battery").unwrap();
+        assert_eq!(intent.action, "battery.status");
+    }
+
+    #[test]
+    fn rejects_unknown_command() {
+        let error = parse("do something random").unwrap_err();
+        assert_eq!(error.to_string(), "unsupported command");
+    }
+
+    #[test]
+    fn android_style_budget_is_resource_aware() {
+        let normal = ResourceSnapshot {
+            available_memory_bytes: 1_000_000_000,
             battery_percent: 80,
             low_memory: false,
             low_power: false,
         };
-        let low_power = AirSnapshot {
+        let low_power = ResourceSnapshot {
+            available_memory_bytes: 1_000_000_000,
+            battery_percent: 15,
+            low_memory: false,
             low_power: true,
-            ..normal
         };
+
         let policy = ResourcePolicy::default();
         assert!(
             policy.recommended_model_budget(low_power) < policy.recommended_model_budget(normal)
         );
+    }
+
+    #[test]
+    fn nova_core_can_boot_with_builtins() {
+        let mut nova = NovaEngine::new(128 * 1024 * 1024, EchoBackend, 16).unwrap();
+        assert!(nova.register_builtin_skills().is_ok());
     }
 }
