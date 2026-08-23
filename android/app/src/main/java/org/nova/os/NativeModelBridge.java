@@ -16,6 +16,7 @@ import java.io.InputStream;
 public final class NativeModelBridge {
     public static final String MODEL_ASSET = "models/SmolLM2-135M-Instruct-Q2_K.gguf";
     private static final String MODEL_FILE = "SmolLM2-135M-Instruct-Q2_K.gguf";
+    private static final long MINIMUM_MODEL_BUDGET_BYTES = 256_000_000L;
     private static final boolean AVAILABLE;
 
     static {
@@ -89,7 +90,7 @@ public final class NativeModelBridge {
         try {
             AndroidResourceSnapshot resources = AndroidResourceSnapshot.read(context);
             long budget = NativeNovaBridge.recommendModelBudget(resources);
-            if (budget > 0 && budget < 120L * 1024L * 1024L) {
+            if (budget > 0 && budget < MINIMUM_MODEL_BUDGET_BYTES) {
                 return Result.error("AIR memory policy is below the minimum model budget");
             }
 
