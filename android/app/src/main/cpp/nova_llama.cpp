@@ -112,7 +112,7 @@ std::string generate(const std::string & model_path, const std::string & user_pr
     output.reserve(static_cast<size_t>(max_tokens) * 4);
 
     for (int i = 0; i < max_tokens; ++i) {
-        const llama_token token = llama_sampler_sample(sampler, ctx, -1);
+        llama_token token = llama_sampler_sample(sampler, ctx, -1);
         if (llama_vocab_is_eog(vocab, token)) {
             break;
         }
