@@ -139,6 +139,7 @@ public class MainActivity extends Activity {
     }
 
     private void runDiagnosticsAsync() {
+        refreshStatus();
         output.setText("Running NOVA Core diagnostics…");
         background.execute(() -> {
             String result = coreDiagnostics();
@@ -170,7 +171,6 @@ public class MainActivity extends Activity {
     }
 
     private String coreDiagnostics() {
-        refreshStatus();
         NativeNovaBridge.CoreStatus core = NativeNovaBridge.bootDiagnostics();
         if (core.ready) {
             return "NOVA Rust Core booted successfully.\n\n"
