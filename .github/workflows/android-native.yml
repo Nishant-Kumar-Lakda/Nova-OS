@@ -34,12 +34,14 @@ jobs:
           java-version: '17'
 
       - name: Set up Android SDK command-line tools
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Set up Android SDK, NDK and CMake
         run: |
           set -euo pipefail
-          yes | sdkmanager --licenses >/dev/null || true
+          command -v sdkmanager
+          sdkmanager --version
+          sdkmanager --licenses >/dev/null || true
           sdkmanager --install \
             "platforms;android-35" \
             "build-tools;35.0.0" \
@@ -51,7 +53,6 @@ jobs:
           echo "ANDROID_NDK_HOME=$ANDROID_NDK_ROOT" >> "$GITHUB_ENV"
           echo "ANDROID_CMAKE_VERSION=3.22.1" >> "$GITHUB_ENV"
 
-          test -x "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
           test -f "$ANDROID_NDK_ROOT/source.properties"
 
       - name: Install Rust
