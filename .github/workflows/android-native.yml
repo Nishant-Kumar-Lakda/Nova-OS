@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   push:
     paths:
+      - ".github/workflows/android-native.yml"
       - "android-bridge/**"
       - "android/**"
       - "nexus/**"
