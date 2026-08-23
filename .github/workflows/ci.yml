@@ -33,9 +33,32 @@ jobs:
           distribution: temurin
           java-version: '17'
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-      - name: Install Android SDK platform
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+        uses: android-actions/setup-android@v4
+      - name: Install Android native toolchain
+        run: |
+          set -euo pipefail
+          sdkmanager --licenses >/dev/null || true
+          sdkmanager \
+            "platforms;android-35" \
+            "build-tools;35.0.0" \
+            "ndk;27.0.12077973" \
+            "cmake;3.22.1"
+
+          ANDROID_NDK_ROOT="$ANDROID_SDK_ROOT/ndk/27.0.12077973"
+          echo "ANDROID_NDK_ROOT=$ANDROID_NDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$ANDROID_NDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_CMAKE_VERSION=3.22.1" >> "$GITHUB_ENV"
+          test -f "$ANDROID_NDK_ROOT/source.properties"
+
+      - name: Fetch pinned llama.cpp source
+        run: |
+          set -euo pipefail
+          LLAMA_DIR="android/app/src/main/cpp/llama.cpp"
+          git clone https://github.com/ggml-org/llama.cpp.git "$LLAMA_DIR"
+          git -C "$LLAMA_DIR" checkout 9a286ac98d2cab74231bd3f1fc3f2b8bdf05422e
+          test -f "$LLAMA_DIR/CMakeLists.txt"
+          test -f "$LLAMA_DIR/include/llama.h"
+
       - name: Install Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
