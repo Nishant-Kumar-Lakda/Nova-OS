@@ -12,14 +12,21 @@ $modelUrl = "https://huggingface.co/tensorblock/SmolLM2-135M-Instruct-GGUF/resol
 New-Item -ItemType Directory -Force $cppDir | Out-Null
 New-Item -ItemType Directory -Force $assetDir | Out-Null
 
-if (-not (Test-Path (Join-Path $llamaDir "CMakeLists.txt"))) {
+if (-not (Test-Path (Join-Path $llamaDir ".git"))) {
     if (Test-Path $llamaDir) {
         Remove-Item -Recurse -Force $llamaDir
     }
     git clone https://github.com/ggml-org/llama.cpp.git $llamaDir
-    Push-Location $llamaDir
-    git checkout $llamaCommit
-    Pop-Location
+}
+
+git -C $llamaDir fetch --depth 1 origin $llamaCommit
+git -C $llamaDir checkout --detach $llamaCommit
+
+if (-not (Test-Path (Join-Path $llamaDir "CMakeLists.txt"))) {
+    throw "Pinned llama.cpp checkout is missing CMakeLists.txt."
+}
+if (-not (Test-Path (Join-Path $llamaDir "include/llama.h"))) {
+    throw "Pinned llama.cpp checkout is missing include/llama.h."
 }
 
 if (-not (Test-Path $model)) {
@@ -31,5 +38,6 @@ if ((Get-Item $model).Length -lt 80000000) {
 }
 
 Write-Host "Android native AI dependencies are ready."
+Write-Host "llama.cpp commit: $llamaCommit"
 Write-Host "llama.cpp: $llamaDir"
 Write-Host "model: $model"
