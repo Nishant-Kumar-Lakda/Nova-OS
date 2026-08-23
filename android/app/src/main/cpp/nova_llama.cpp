@@ -112,19 +112,19 @@ std::string generate(const std::string & model_path, const std::string & user_pr
     output.reserve(static_cast<size_t>(max_tokens) * 4);
 
     for (int i = 0; i < max_tokens; ++i) {
-        llama_token token = llama_sampler_sample(sampler, ctx, -1);
-        if (llama_vocab_is_eog(vocab, token)) {
+        llama_token next_token = llama_sampler_sample(sampler, ctx, -1);
+        if (llama_vocab_is_eog(vocab, next_token)) {
             break;
         }
 
         char piece[256];
-        const int n = llama_token_to_piece(vocab, token, piece, sizeof(piece), 0, true);
+        const int n = llama_token_to_piece(vocab, next_token, piece, sizeof(piece), 0, true);
         if (n < 0) {
             break;
         }
         output.append(piece, static_cast<size_t>(n));
 
-        batch = llama_batch_get_one(&token, 1);
+        batch = llama_batch_get_one(&next_token, 1);
         if (llama_decode(ctx, batch) != 0) {
             output.append("\n[decode error]");
             break;
