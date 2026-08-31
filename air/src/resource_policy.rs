@@ -53,10 +53,13 @@ impl ResourcePolicy {
         let memory_based = snapshot.available_memory_bytes.saturating_mul(ratio as u64) / 100;
 
         let low_memory_cap = if snapshot.low_memory {
-            snapshot
+            let low_memory_based = snapshot
                 .available_memory_bytes
                 .saturating_mul(self.low_memory_ratio_percent as u64)
-                / 100
+                / 100;
+            // Low memory must further restrict the budget, never relax a
+            // stricter power-mode budget.
+            memory_based.min(low_memory_based)
         } else {
             memory_based
         };
@@ -115,5 +118,12 @@ mod tests {
             policy.power_mode(snapshot(1_000_000_000, 5, false, false)),
             PowerMode::CriticalBattery
         );
+    }
+
+    #[test]
+    fn low_memory_never_relaxes_a_stricter_battery_budget() {
+        let policy = ResourcePolicy::default();
+        let result = policy.recommended_model_budget(snapshot(1_000_000_000, 5, true, false));
+        assert_eq!(result, 50_000_000);
     }
 }
