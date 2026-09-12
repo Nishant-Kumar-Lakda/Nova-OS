@@ -85,30 +85,67 @@ public final class NovaCommandRouter {
             return new Command(Action.UNKNOWN, 0.0f, "");
         }
 
-        String text = input.trim().toLowerCase(Locale.ROOT);
+        String text = normalize(input);
 
-        if (text.equals("battery") || text.contains("battery status") || text.contains("check battery")) {
+        if (text.equals("battery")
+                || text.contains("battery status")
+                || text.contains("check battery")
+                || text.contains("battery level")
+                || text.contains("how much battery")) {
             return new Command(Action.BATTERY_STATUS, 0.99f, input);
         }
-        if (text.equals("settings") || text.equals("open settings")) {
+        if (text.equals("settings") || text.equals("open settings") || text.contains("settings screen")) {
             return new Command(Action.OPEN_SETTINGS, 0.99f, input);
         }
-        if (text.equals("camera") || text.equals("open camera")) {
+        if (text.equals("camera") || text.equals("open camera") || text.contains("camera app")) {
             return new Command(Action.OPEN_CAMERA, 0.99f, input);
-        }
-        if (text.startsWith("open ") && text.length() > 5) {
-            return new Command(Action.APP_OPEN, 0.95f, input, text.substring(5).trim());
         }
         if (text.contains("flashlight") || text.contains("torch")) {
             return new Command(Action.FLASHLIGHT_SIMULATE, 0.99f, input);
         }
-        if (text.contains("wifi") || text.contains("wi-fi")) {
+        if (text.contains("wifi") || text.contains("wi-fi") || text.contains("wireless internet")) {
             return new Command(Action.WIFI_SIMULATE, 0.99f, input);
         }
-        if (text.contains("bluetooth")) {
+        if (text.contains("bluetooth") || text.contains("blue tooth")) {
             return new Command(Action.BLUETOOTH_SIMULATE, 0.99f, input);
+        }
+        if (text.startsWith("open ") && text.length() > 5) {
+            return new Command(Action.APP_OPEN, 0.95f, input, text.substring(5).trim());
         }
 
         return new Command(Action.UNKNOWN, 0.30f, input);
+    }
+
+    private static String normalize(String input) {
+        String text = input.trim().toLowerCase(Locale.ROOT);
+        text = text.replaceAll("[?!.,]+$", "");
+
+        String[] prefixes = {
+                "please ",
+                "can you ",
+                "could you ",
+                "would you ",
+                "will you ",
+                "i want you to ",
+                "i need you to ",
+                "i need to ",
+                "i want to ",
+                "help me ",
+                "hey nova ",
+                "nova "
+        };
+        boolean changed;
+        do {
+            changed = false;
+            for (String prefix : prefixes) {
+                if (text.startsWith(prefix)) {
+                    text = text.substring(prefix.length()).trim();
+                    changed = true;
+                    break;
+                }
+            }
+        } while (changed && !text.isEmpty());
+
+        return text;
     }
 }
