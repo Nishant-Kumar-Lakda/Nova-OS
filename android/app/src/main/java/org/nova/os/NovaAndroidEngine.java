@@ -66,6 +66,19 @@ public final class NovaAndroidEngine {
                     nativeResult.parameter
             );
             nativeUsed = true;
+
+            // NEXUS remains the preferred parser, but an unknown native action
+            // must not hide the deterministic safe router. This keeps common
+            // commands fast even when their phrasing is not yet covered by
+            // the Rust parser.
+            if (command.action == NovaCommandRouter.Action.UNKNOWN
+                    || command.confidence < 0.70f) {
+                NovaCommandRouter.Command fallback = NovaCommandRouter.route(input);
+                if (fallback.action != NovaCommandRouter.Action.UNKNOWN) {
+                    command = fallback;
+                    nativeUsed = false;
+                }
+            }
         } else {
             command = NovaCommandRouter.route(input);
         }
