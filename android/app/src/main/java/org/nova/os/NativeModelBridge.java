@@ -100,12 +100,21 @@ public final class NativeModelBridge {
             if (text == null) {
                 return Result.error("native inference returned no result");
             }
+            if (text.startsWith("CANCELLED:")) {
+                return Result.cancelled(text.substring("CANCELLED:".length()).trim());
+            }
             if (text.startsWith("ERROR:")) {
                 return Result.error(text.substring("ERROR:".length()).trim());
             }
             return Result.success(text);
         } catch (Exception error) {
             return Result.error(error.getClass().getSimpleName() + ": " + error.getMessage());
+        }
+    }
+
+    public static void cancel() {
+        if (AVAILABLE) {
+            nativeCancel();
         }
     }
 
@@ -116,23 +125,31 @@ public final class NativeModelBridge {
             int threads
     );
 
+    private static native void nativeCancel();
+
     public static final class Result {
         public final boolean success;
+        public final boolean cancelled;
         public final String text;
         public final String error;
 
-        private Result(boolean success, String text, String error) {
+        private Result(boolean success, boolean cancelled, String text, String error) {
             this.success = success;
+            this.cancelled = cancelled;
             this.text = text;
             this.error = error;
         }
 
         static Result success(String text) {
-            return new Result(true, text, "");
+            return new Result(true, false, text, "");
+        }
+
+        static Result cancelled(String message) {
+            return new Result(false, true, "", message);
         }
 
         static Result error(String error) {
-            return new Result(false, "", error);
+            return new Result(false, false, "", error);
         }
     }
 }
