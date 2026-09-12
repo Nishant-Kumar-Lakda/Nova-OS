@@ -36,6 +36,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        NativeModelBridge.cancel();
         if (background != null) {
             background.shutdownNow();
         }
@@ -74,8 +75,9 @@ public class MainActivity extends Activity {
         Button cancel = new Button(this);
         cancel.setText("Cancel Latest Task");
         cancel.setOnClickListener(v -> {
+            NativeModelBridge.cancel();
             engine.cancelLatest();
-            output.setText("Latest NOVA task cancelled.");
+            output.setText("Cancelling latest NOVA task…");
         });
 
         Button diagnostics = new Button(this);
@@ -228,6 +230,8 @@ public class MainActivity extends Activity {
             NativeModelBridge.Result ai = NativeModelBridge.generate(this, input, 64);
             if (ai.success) {
                 text.append("\n\nOffline AI response:\n").append(ai.text.trim());
+            } else if (ai.cancelled) {
+                text.append("\n\nOffline AI generation cancelled.");
             } else {
                 text.append("\n\nOffline AI unavailable: ").append(ai.error);
             }
